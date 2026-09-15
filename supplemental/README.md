@@ -40,6 +40,6 @@ DCR と App Runtime の実装は含みません。定期実行基盤の準備も
 
 ## 検証状態
 
-Snowflakeへの接続・コンパイル・実行は未実施です。作成者向けのオフライン検査は `python3 -B supplemental/test_supplemental.py`（リポジトリルートから）で実行できます。標準ライブラリのみを使い、名前・参照範囲・SQL種別・5ジャンル・検索引数と、SQLiteに最小変換した区間SQLの期待値を検査します。Snowflakeの構文受理、権限、Searchの作成可否・順位・課金の実測を保証しません。
+補足教材のSnowflakeでの実行確認は未実施です。実施する場合は講師に利用可否を確認してください。本編を進めるために、この補足を実行する必要はありません。
 
 公式資料: [永続化されたクエリ結果](https://docs.snowflake.com/en/user-guide/querying-persisted-results)。

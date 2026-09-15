@@ -1,8 +1,8 @@
 # 放送データ基盤ハンズオン
 
-5局を別々に整え、最後にまとめて分析する日本語教材です。旧 `broadcast-viewing-handson-ja` を参考に、処理と費用の局別管理、MLOps体験を中心に再構成しました。
+5局を別々に整え、最後にまとめて分析する日本語教材です。Snowsightにこのリポジトリを取り込み、手順に沿って演習します。
 
-**状態：2026-09-15にトライアルでParquet取込、局別・共通dbt、モデル登録・推論・200台の保存、Semantic View集計を確認しました。GitHubリポジトリは非公開です。Streamlit・Agentは配置済みですが、GUI・CoWork・参加者操作の通し確認は未完了です。[検証記録](docs/verification.md)と[講師用チェックリスト](docs/instructor.md)を参照してください。**
+> 実施前に講師から利用アカウント・ロール・実行環境の案内を受けてください。データ処理・モデル登録と推論・Semantic View集計はトライアルで確認済みですが、参加者のGit Workspace経路、Streamlit画面、Agent GUI・CoWorkの一連の操作は未確認です。
 
 ## この教材で体験すること
 
@@ -47,11 +47,11 @@ MLOpsは合成データのスポーツ関心ラベルを扱います。年齢・
 - **補足**：[基本SQL、Cortex Search、定期実行の考え方](supplemental/README.md)。Searchなしでも必須Agentは動く構成です。
 - **講師デモのみ**：App Runtime。講師の既存環境で見せ、参加者は構築しません。
 - **対象外**：DCR、外部モデルファイル持ち込み、高度な自動再学習、CoCo Desktopの参加者インストール。
-- 本編はSnowsight中心。`scripts/`、ローカルのテストコマンド、`CONTRACT.md`は教材作成者向けです。
+- 本編はSnowsight中心です。データ生成やローカルPCでの検証は不要です。
 
 ## 前提
 
-機能とパッケージが使用できるSnowflakeアカウント、管理者による初期準備、SnowsightのGit-backed Workspaceを用意します。ローカルPCのPythonは受講者に不要です。現状のGitHubリポジトリは非公開のため、認証なしの教材Git取込SQLはそのままでは使えません。参加者向けの公開、または非公開Git用の認証設定を別途完了してから取り込みます。
+機能とパッケージが使用できるSnowflakeアカウント、管理者による初期準備、SnowsightのGit-backed Workspaceを用意します。ローカルPCのPythonは不要です。[公開リポジトリ](https://github.com/sfc-gh-kenokizono/broadcast-data-platform-handson-ja)を使い、[第1章](docs/01_setup.md)から進めます。
 
 1アカウントに教材1組を想定します。同じアカウントに参加者ごとの独立環境を作る場合は全教材にわたる名前の変更が必要です。新DBは `BCAST_PLATFORM_HANDSON`。旧DB `BCAST_VIEWING_HANDSON` は変更しません。
 
@@ -59,6 +59,16 @@ MLOpsは合成データのスポーツ関心ラベルを扱います。年齢・
 
 架空200台・2026年7月の30日・視聴区間18,000行、各局3,600行です。時刻は日本の壁時計時刻を想定したTIMESTAMP_NTZです。5局共通の端末ID突合は済んでいる前提です。各局のリーチが同じになる等の人工的な設計があり、市場規模やモデル精度の根拠には使えません。
 
-## 終了・検証
+## フォルダの見方
 
-[講師用チェックリスト](docs/instructor.md)と[検証記録](docs/verification.md)に実施範囲を記録します。[cleanup.sql](sql/cleanup.sql)は新教材を削除する破壊的操作なので、保持するものを確認してから、コメントを読んで必要な箇所だけ実行します。Workspace開発アプリ等は別途停止・整理します。
+- `docs/`：第1〜5章の受講手順とAgentへ貼り付ける文章。
+- `data/`：取込用のParquet。生成済みなので、そのまま使います。
+- `dbt/`：整形・集計と、演習で実行するデータ品質テスト。
+- `notebooks/`：学習・評価・モデル登録・予測を行うNotebook。
+- `app/`：Streamlitに配置する3ファイル。
+- `sql/`：環境準備・取込・Semantic View・Agent・後片付け。
+- `supplemental/`：希望者向けの補足教材。
+
+## 終了
+
+[cleanup.sql](sql/cleanup.sql)は教材環境を削除する操作です。保持するものを確認し、講師の案内に従って実行してください。Workspaceの開発アプリ等は別途停止・整理します。

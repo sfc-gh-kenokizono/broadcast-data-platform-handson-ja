@@ -8,3 +8,12 @@ dbt/target/
 dbt/logs/
 dbt/dbt_packages/
 .ipynb_checkpoints/
+scripts/
+app/tests/
+notebooks/tests/
+dbt/verification/
+supplemental/test_*.py
+CONTRACT.md
+docs/instructor.md
+docs/verification.md
+requirements-dev.txt

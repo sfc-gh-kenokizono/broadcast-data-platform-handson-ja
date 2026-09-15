@@ -1,6 +1,6 @@
 # 第4章 共通マートを可視化する
 
-この章は、作成済みの `COMMON.VIEWING_DAILY` を Snowsight の Streamlit アプリから読み取ります。SQL・Python はローカルで作成した教材であり、対象アカウントでの作成・起動は未検証です。以下の画面操作は参加者が後から実施します。
+この章は、作成済みの `COMMON.VIEWING_DAILY` を Snowsight の Streamlit アプリから読み取り、グラフにします。画面操作の一連の動作確認は未完了です。画面が異なる場合は講師に確認してください。
 
 ## 前提
 
@@ -8,15 +8,15 @@
 - 作成ロールは `BCAST_PLATFORM_ENGINEER_ROLE`。データベースは `BCAST_PLATFORM_HANDSON`、配置先は `MART`、アプリ名は `VIEWING_APP`、クエリ用ウェアハウスは `BCAST_PLATFORM_COMMON_WH` とします。
 - 作成ロールには、対象 DB・MART・COMMON の USAGE、MART の CREATE STREAMLIT、COMMON.VIEWING_DAILY の SELECT、共通ウェアハウスの USAGE が必要です。予測表示時だけ ML の USAGE と ML.PREDICTIONS の SELECT も必要です。準備は第1章と第3章で確認します。
 - 所有者権限で実行する構成です。閲覧者へアプリを共有すると所有者が取得できる結果が表示されます。行レベルのアクセス制御を実装したアプリではありません。ACCOUNTADMIN をアプリ所有者にしないでください。
-- 公開予定リポジトリは `sfc-gh-kenokizono/broadcast-data-platform-handson-ja` です。本ビルドで公開・push はしていません。Git 経路は講師が公開済みブランチを案内した後だけ利用します。
+- リポジトリは `sfc-gh-kenokizono/broadcast-data-platform-handson-ja` です。講師が案内するブランチを使います。
 
 **必須経路は経路B（warehouse runtime）を推奨します。** 共通WHをアプリとSQLの実行に使い、compute pool の追加準備を必要としない最も単純な構成です。経路Aは Workspace 開発を試す補足で、第1章ではその compute pool の作成・USAGE 付与・Workspace の前提を準備していません。迷った場合は経路Bへ進んでください。両経路を続けて実行する必要はありません。同名の `VIEWING_APP` が既にある場合は、別経路で上書きせず講師に確認します。
 
 ## 使うソース
 
-`app/streamlit_app.py` が入口、`app/queries.py` が集計 SQL です。この2ファイルを必ず同じフォルダに配置します。`app/environment.yml` は warehouse runtime 用です。`app/tests/` はローカルテスト専用で、デプロイ対象に含める必要はありません。
+`app/streamlit_app.py` が入口、`app/queries.py` が集計 SQL です。この2ファイルを必ず同じフォルダに配置します。`app/environment.yml` は warehouse runtime 用です。
 
-コンテナ用の `snowflake.yml` は同梱していません。未確認の compute pool 名を固定しないため、Workspace の UI が作る設定を、実際のアカウントに合わせて確認します。ローカル認証情報や `snowhouse` 接続設定はアプリに含めません。
+コンテナ用の `snowflake.yml` は同梱していません。Workspace経路を使う場合は、画面が作る設定を、実際のアカウントに合わせて確認します。
 
 ## 経路A: Git Workspaceから作成（補足）
 
@@ -73,10 +73,6 @@ warehouse runtime の作成画面がない場合は、講師に利用可否を�
 3. 1局・1日、複数局・複数日、局未選択、日付選択途中で例外にならないこと。
 4. 第3章完了後、予測あり・なしの合計端末数が同条件の実績リーチと一致し、モデル名・バージョンが第3章の出力と一致すること。
 5. 両経路共通の共有・公開確認を終え、アナリストの閲覧画面で意図した版が動き、想定外のデータが表示されないこと。この確認は本ビルドでは未実施です。
-
-ローカルテストは `python -m unittest discover -s app/tests -v` です。Snowflake へ接続せず、SQLite のメモリ内 fixture と Streamlit AppTest のモックで確認します。Snowflake 方言のコンパイルや SiS ランタイム検証の代替ではありません。
-
-テスト環境には `streamlit`、`pandas`、`snowflake-snowpark-python`、`PyYAML` が必要です。PyYAML は Agent SQL 内の YAML を検査するテスト用で、アプリ実行には不要です。本ビルドのテストは既存ローカル環境の Python 3.12／Streamlit 1.37.1 で実施しました。教材で指定した Python 3.11／Streamlit 1.50.0 と同一環境ではありません。
 
 ## 後片付け
 

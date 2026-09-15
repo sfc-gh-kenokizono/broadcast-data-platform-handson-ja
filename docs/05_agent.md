@@ -1,6 +1,6 @@
 # 第5章 セマンティックビューと Agent
 
-数値の意味を `MART.SV_VIEWING` に定義し、それを唯一の Analyst ツールとして GUI で Agent を作ります。ML の予測テーブルと検索サービスは前提にしません。作成先はすべて **BCAST_PLATFORM_HANDSON** です。本ビルドはローカル作成のみで、SQL のコンパイル、GUI 操作、CoWork への公開・実行は未検証です。
+数値の意味を `MART.SV_VIEWING` に定義し、それを唯一の Analyst ツールとして GUI で Agent を作ります。ML の予測テーブルと検索サービスは前提にしません。作成先はすべて **BCAST_PLATFORM_HANDSON** です。Semantic View集計とAgentのSQL作成はトライアルで確認済みですが、GUI操作・CoWorkへの公開と質問は未確認です。
 
 ## 1. 前提を確認
 
@@ -70,7 +70,7 @@ Playground と CoWork の両方を、共有先ロールの利用者でも確認�
 
 ## 未検証事項と参照
 
-2026-09-14 に以下の公式記載を確認しました。対象アカウントでの DDL／YAML の受理、セマンティックビューの権限と生成 SQL、GUI の配置・自動ツール名・Save／Publish の遷移、CoWork の一覧反映、Auto が選択するモデルは未検証です。
+GUIの配置・保存・公開、CoWorkの一覧反映と質問結果は実施環境で確認してください。SQLで作成できることと、GUI経路や自然言語の回答まで確認できたことは別です。
 
 - [CREATE SEMANTIC VIEW](https://docs.snowflake.com/en/sql-reference/sql/create-semantic-view)
 - [CREATE AGENT](https://docs.snowflake.com/en/sql-reference/sql/create-agent)

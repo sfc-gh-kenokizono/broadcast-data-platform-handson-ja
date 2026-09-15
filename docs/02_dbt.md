@@ -1,6 +1,6 @@
 # 第 2 章 局ごとの dbt 処理と最終統合
 
-> 2026-09-15実機追記：トライアルのネイティブdbt 1.9.4／adapter 1.9.2で6 build・11モデル・38テストが成功しました。各局とCOMMONのモデル・テストのWH帰属も履歴で確認済みです。ステージから配置したdbt project objectでの検証であり、以下の参加者Workspace経路は未確認です。詳細は[検証記録](verification.md)。
+> この章はdbt 1.9.4を使います。局別処理はトライアルのdbt project objectで確認済みですが、以下のGit Workspace経路は未確認です。開始前に講師から実施環境の案内を受けてください。
 
 ## この章の到達点
 
@@ -48,9 +48,9 @@ RAW.VIEWING_LOG_NW05 -> NW05.CLEAN_VIEWING -> NW05.MART_DEVICE_DAILY --+
 
 `profiles.yml` の `account: ''` と `user: ''` は意図した空文字です。旧教材と同じ Snowflake ネイティブ実行用であり、パスワード、トークン、鍵は記載しません。ローカル dbt Core から接続するためのプロファイルではありません。
 
-外部パッケージは使用しません。`packages.yml`、`dbt deps`、パッケージ取得のための外部アクセス統合は不要です。**参加者の Snowsight dbt 1.9 系と、作成者のローカル dbt 1.11 系を区別します。** `require-dbt-version` は `>=1.9.0, <2.0.0` とし、generic tests の引数は `arguments:` で包まずテスト名の直下に置きます。1.10.5 以降専用の形式は使いません。ローカル 1.11 では旧形式の非推奨メッセージが出る場合がありますが、参加者の 1.9 との互換性を優先します。
+外部パッケージは使用しません。`packages.yml`、`dbt deps`、パッケージ取得のための外部アクセス統合は不要です。
 
-以下は `DBT_VERSION = '1.9.4'` を明示した未実行の例です。開始前に講師が利用環境の対応バージョンを確認してください。1.9 の実機検証が済んだという意味ではなく、ローカル 1.11 の parse 成功を代用しません。
+以下は `DBT_VERSION = '1.9.4'` を明示します。開始前に利用環境の対応バージョンを講師へ確認してください。
 
 ### GENRE の整形
 
@@ -165,7 +165,7 @@ EXECUTE DBT PROJECT FROM WORKSPACE USER$.PUBLIC."broadcast-data-platform-handson
 | 複合キー一意性 | 4 列を GROUP BY し COUNT(*) > 1 を失敗行として返す | 各局 / common |
 | 統合件数 | 5 局マートの件数と common の局別件数が一致 | common のみ |
 
-**各局 7 本 = clean の必須列 NULL 1 + EVENT_ID 一意性 1 + 自局 accepted_values 1 + GENRE accepted_values 1 + 区間・正の分数 1 + mart の必須列 NULL 1 + mart の複合キー一意性 1。common は必須列 NULL・複合キー一意性・局別件数一致の 3 本。合計 38 tests（7 × 5 + 3）です。** 列ごとに同じ検査を繰り返す 127 本から、説明できる検査単位に絞っています。
+**各局 7 本 = clean の必須列 NULL 1 + EVENT_ID 一意性 1 + 自局 accepted_values 1 + GENRE accepted_values 1 + 区間・正の分数 1 + mart の必須列 NULL 1 + mart の複合キー一意性 1。common は必須列 NULL・複合キー一意性・局別件数一致の 3 本。合計 38 tests（7 × 5 + 3）です。** 38種類の検査ではなく、同じ検査を局ごとに適用した数です。
 
 区間テストは NULL の時刻・分数も失敗行として返します。集計値の正数検査を各層で繰り返すテストは省略しました。正の区間を通過したイベントを `COUNT` / `SUM` することを前提とし、任意に書き換えられた集計テーブルまで網羅的に検証する品質監視製品ではありません。
 
@@ -189,25 +189,10 @@ EXECUTE DBT PROJECT FROM WORKSPACE USER$.PUBLIC."broadcast-data-platform-handson
   ARGS = 'test --target common --select tag:common --indirect-selection cautious';
 ```
 
-common のテスト単独実行は共通 build 後に限ります。クエリ履歴で dbt が発行した CTAS とテスト SELECT の **WAREHOUSE_NAME** を確認してください。親の `EXECUTE DBT PROJECT` 一文の WH だけから判断せず、出力ログやクエリ ID から子 SQL を確認します。本教材作成時点で実際の WH 帰属を実測したわけではありません。
+common のテスト単独実行は共通 build 後に限ります。クエリ履歴で dbt が発行した CTAS とテスト SELECT の **WAREHOUSE_NAME** を確認してください。親の `EXECUTE DBT PROJECT` 一文の WH だけから判断せず、出力ログやクエリ ID から子 SQL を確認します。
 
-## ローカル検証と限界
+## 次の章へ
 
-再検証用の `dbt/verification/verify_local.py` は **教材の 38 tests とは別の作成者向けオフライン回帰検査**です。既存の dbt Core 1.11.7 / dbt-snowflake 1.11.3 を使い、ネットワーク接続を拒否します。6 targets の parse、selector と tag 選択の一致、テスト単独選択、DAG、スキーマ・alias、正確なテスト種類・件数・必須列・許容値、6 WH の分離、ガードの許可・拒否、テスト SQL の Jinja 展開と参照範囲を検査します。`build`、`run`、`test`、`compile`、`show`、`debug` は実行しません。新規パッケージのインストールも行いません。
-
-common 件数テストの全 6 依存、明示タグでの選択、親モデルを選ばないこと、モデル名だけでは cautious により件数テストが落ちることも回帰検査します。各局のテストはその局のモデルだけを解決できる条件で展開し、他局未作成でも他局を参照しない構造を確認します。これは実テーブルでの SELECT 成功を意味しません。
-
-オフラインのコマンド数は `parse` 6 回 + `ls` 26 回です。11 models と 38 tests の Jinja を展開し、ジャンルの明示変換、未知値の保持、ミリ秒の分換算、開始日への集計、4 列の粒度、5 局 UNION ALL も別途検査します。これらは文字列・依存関係の回帰検査であり、SQL の実行や実データの合否判定は行いません。
-
-ガードは on-run-start の `execute` と `selected_resources` / `graph.nodes` / `target` を使います。実機デプロイ時の全体コンパイルもhookを評価するため、`flags.WHICH` がcompile/parse/ls/listの場合だけ除外します。フラグが取得できなければbuild扱いで検査します。build/run/testではtarget・WH・選択範囲の検査を維持し、トライアルでも誤った局のbuildを拒否しました。テストに明示タグがなければ親モデルから所属を判断し、common件数テストは明示commonタグを優先します。ローカル検査はフラグなしの保守的動作、実行コマンドの拒否、コンパイルの許可を含みます。
-
-```bash
-uv run --offline --no-project --no-config /opt/anaconda3/bin/python \
-  /Users/kenokizono/Code/broadcast-data-platform-handson-ja/dbt/verification/verify_local.py
-```
-
-これは作成者の既存ローカル環境用のコマンドで、参加者の必須手順ではありません。生成される `dbt/target/` と `dbt/logs/` は検証用アーティファクトであり、教材のソースではありません。空の user に関するローカル adapter メッセージはネイティブ用プロファイルと dbt Core の違いです。認証情報を足して消す必要はありません。
-
-**ローカル parse は Snowflake SQL のコンパイル、実データのテスト pass、Snowsight の画面操作、権限、実際の WH 帰属を保証しません。** 上記のネイティブ SQL 例は未実行です。Snowsight の操作パネルが同じオプションを保持するかも未検証のため、ボタン操作を同等の代替手順とは断言しません。
+共通マートのbuildと3件のテストが成功したら、[第3章 MLOps](03_mlops.md)へ進みます。
 
 公式の構文とバージョン情報: [EXECUTE DBT PROJECT](https://docs.snowflake.com/en/sql-reference/sql/execute-dbt-project)、[対応 dbt Core バージョン](https://docs.snowflake.com/en/user-guide/data-engineering/dbt-projects-on-snowflake-dbt-core-versions)。

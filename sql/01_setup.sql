@@ -135,9 +135,9 @@ CREATE STAGE IF NOT EXISTS BCAST_PLATFORM_HANDSON.INTEGRATIONS.BCAST_PLATFORM_RA
   FILE_FORMAT = (FORMAT_NAME = 'BCAST_PLATFORM_HANDSON.INTEGRATIONS.BCAST_PLATFORM_PARQUET');
 
 -- ============================================
--- 5. 公開後のみ実行する。予定URLはまだ公開されていない。
--- 未公開の間はここで停止し、02_load_parquet.sqlも実行しない。
--- 公開されたmainブランチに6個の実体Parquetがあることを先に確認する。
+-- 5. 公開リポジトリに接続する。
+-- mainブランチに6個のParquetがあることを確認する。
+-- Git接続が失敗した場合は02_load_parquet.sqlへ進まない。
 -- ============================================
 CREATE GIT REPOSITORY IF NOT EXISTS BCAST_PLATFORM_HANDSON.INTEGRATIONS.BCAST_PLATFORM_REPO
   API_INTEGRATION = BCAST_PLATFORM_GIT_API
