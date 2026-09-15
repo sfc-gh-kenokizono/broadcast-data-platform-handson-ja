@@ -51,6 +51,8 @@ MLOpsは合成データのスポーツ関心ラベルを扱います。年齢・
 
 ## 前提
 
+開始前に講師と[準備確認表](docs/00_preflight.md)を埋めます。Notebookの実行環境・停止方法、共有先の利用条件が未確認のまま開始しません。
+
 機能とパッケージが使用できるSnowflakeアカウント、管理者による初期準備、SnowsightのGit-backed Workspaceを用意します。ローカルPCのPythonは不要です。[公開リポジトリ](https://github.com/sfc-gh-kenokizono/broadcast-data-platform-handson-ja)を使い、[第1章](docs/01_setup.md)から進めます。
 
 1アカウントに教材1組を想定します。同じアカウントに参加者ごとの独立環境を作る場合は全教材にわたる名前の変更が必要です。新DBは `BCAST_PLATFORM_HANDSON`。旧DB `BCAST_VIEWING_HANDSON` は変更しません。
@@ -61,7 +63,7 @@ MLOpsは合成データのスポーツ関心ラベルを扱います。年齢・
 
 ## フォルダの見方
 
-- `docs/`：第1〜5章の受講手順とAgentへ貼り付ける文章。
+- `docs/`：準備確認表、第1〜5章の受講手順とAgentへ貼り付ける文章。
 - `data/`：取込用のParquet。生成済みなので、そのまま使います。
 - `dbt/`：整形・集計と、演習で実行するデータ品質テスト。
 - `notebooks/`：学習・評価・モデル登録・予測を行うNotebook。
@@ -71,4 +73,4 @@ MLOpsは合成データのスポーツ関心ラベルを扱います。年齢・
 
 ## 終了
 
-[cleanup.sql](sql/cleanup.sql)は教材環境を削除する操作です。保持するものを確認し、講師の案内に従って実行してください。Workspaceの開発アプリ等は別途停止・整理します。
+まず[Notebookサービスを停止](docs/03_mlops.md#8-notebookの実行サービスを停止する)します。[cleanup.sql](sql/cleanup.sql)は教材環境を削除する操作です。保持するものを確認し、講師の案内に従って実行してください。Workspaceの開発アプリ等も別途停止・整理します。

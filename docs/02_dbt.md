@@ -124,6 +124,17 @@ EXECUTE DBT PROJECT FROM WORKSPACE USER$.PUBLIC."broadcast-data-platform-handson
 
 ### Common 前の成功確認
 
+各局のbuildが成功した直後に、次を実行します。NW02以降は、SQL内のWH・スキーマ・RAWテーブル名に含まれる`NW01`をすべて同じ局番号に置き換えます。期待値は3,600行・3,600行・3,600回です。今回は日次マートでも各行1回ですが、一般には行数と回数は一致しません。
+
+```sql
+USE ROLE BCAST_PLATFORM_ENGINEER_ROLE;
+USE WAREHOUSE BCAST_PLATFORM_NW01_WH;
+SELECT
+  (SELECT COUNT(*) FROM BCAST_PLATFORM_HANDSON.RAW.VIEWING_LOG_NW01) AS RAW_ROWS,
+  (SELECT COUNT(*) FROM BCAST_PLATFORM_HANDSON.NW01.CLEAN_VIEWING) AS CLEAN_ROWS,
+  (SELECT SUM(SESSION_COUNT) FROM BCAST_PLATFORM_HANDSON.NW01.MART_DEVICE_DAILY) AS MART_SESSIONS;
+```
+
 NW01の実行結果で `STDOUT` を開き、`Completed successfully`、モデル2件・テスト7件、`ERROR=0 SKIP=0` を確認します。hookも成功数に含まれる場合があります。続いてSnowsightのMonitoring → Query History（クエリ履歴）を開き、実行者と実行時刻で絞ります。親のEXECUTE文だけでなく、NW01.CLEAN_VIEWING／NW01.MART_DEVICE_DAILYを作るCREATE TABLE AS SELECTと、`count(*) as failures`を返すテストSELECTを開き、Warehouseが `BCAST_PLATFORM_NW01_WH` であることを確認します。結果出力や履歴が見つからない場合は、そのまま次へ進まず講師に確認してください。
 
 - 同じコードと入力データに対する NW01 の最新 build が成功し、全 7 tests が pass。作成・検査の子 SQL は `BCAST_PLATFORM_NW01_WH`。
@@ -156,6 +167,8 @@ EXECUTE DBT PROJECT FROM WORKSPACE USER$.PUBLIC."broadcast-data-platform-handson
 **次章へのゲート（実行者が確認）:** common の 1 model と 3 tests がすべて成功し、skip/error なし、作成・検査の子 SQL が `BCAST_PLATFORM_COMMON_WH` を使い、局別モデルの再作成がないことを確認します。コードや入力を変更した場合は影響する局の build と common build をやり直します。`run` だけ、またはテストだけの成功は build 成功の代わりにしません。
 
 ## テストの範囲
+
+common build後は[集計結果の確認SQL](../sql/03_check_common.sql)を実行します。期待値は18,000行・200端末・18,000回・約667,632.866664分です。続く比較では、局別マート合計との件数差・回数差が0、分数差の絶対値が0.000001分以下であることを確認します。最後のVALUES例は保存データを変えず、「マート2行・視聴3回・リーチ1端末」を示します。
 
 この38件は、データが存在することや全項目の計算結果まで保証する検査ではありません。空のテーブルでも通るため、各局build後に結果テーブルの行数を確認し、CLEAN_VIEWINGが3,600行、日次マートのSESSION_COUNT合計が3,600、COMMONの合計が18,000であることも確認してください。ジャンルの許容値検査は未整形の値を検出しますが、入力が別の有効なジャンルに誤変換された場合まで検出しません。
 

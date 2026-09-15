@@ -109,9 +109,9 @@ with predictions_tab:
                     st.dataframe(predictions.rename(columns={
                         "PREDICTION_GROUP": "予測クラス", "DEVICE_COUNT": "端末数",
                         "MODEL_NAME": "モデル", "MODEL_VERSION": "バージョン",
-                        "FIRST_PREDICTED_AT": "最初の予測日時", "LAST_PREDICTED_AT": "最後の予測日時",
+                        "FIRST_PREDICTED_AT": "最初の保存日時（UTC）", "LAST_PREDICTED_AT": "最後の保存日時（UTC）",
                     }), hide_index=True)
-                    st.caption("予測なしも含む対象端末数です。モデルとバージョンごとの内訳を示しています。")
+                    st.caption("予測なしも含む対象端末数です。モデルとバージョンごとの内訳を示しています。日時は推論開始時刻ではなく、結果を保存したUTC時刻です。")
         except SnowparkSQLException as error:
             if unavailable_object(error):
                 st.info("ML.PREDICTIONS が未作成、または参照権限がありません。第3章と ML スキーマの権限を確認してください。視聴実績はそのまま利用できます。")
