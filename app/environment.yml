@@ -1,0 +1,8 @@
+name: bcast-platform-streamlit
+channels:
+  - snowflake
+dependencies:
+  - python=3.11
+  - streamlit=1.50.0
+  - pandas=2.*
+  - snowflake-snowpark-python

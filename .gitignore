@@ -1,0 +1,10 @@
+.DS_Store
+__pycache__/
+*.pyc
+.env
+.venv/
+dbt/.user.yml
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/
+.ipynb_checkpoints/

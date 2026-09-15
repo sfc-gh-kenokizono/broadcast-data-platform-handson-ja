@@ -1,0 +1,12 @@
+version: 2
+sources:
+  - name: raw
+    description: Synthetic event inputs, kept separate by station until final mart integration.
+    database: BCAST_PLATFORM_HANDSON
+    schema: RAW
+    tables:
+      - name: VIEWING_LOG_NW01
+      - name: VIEWING_LOG_NW02
+      - name: VIEWING_LOG_NW03
+      - name: VIEWING_LOG_NW04
+      - name: VIEWING_LOG_NW05

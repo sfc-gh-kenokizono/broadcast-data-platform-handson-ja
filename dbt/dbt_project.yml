@@ -1,0 +1,40 @@
+name: bcast_platform_dbt
+version: '1.0.0'
+config-version: 2
+profile: bcast_platform
+require-dbt-version: ['>=1.9.0', '<2.0.0']
+
+model-paths: [models]
+macro-paths: [macros]
+test-paths: [tests]
+
+on-run-start:
+  - "{{ assert_execution_scope() }}"
+
+models:
+  bcast_platform_dbt:
+    +database: BCAST_PLATFORM_HANDSON
+    +materialized: table
+    nw01:
+      +schema: NW01
+      +tags: [nw01]
+    nw02:
+      +schema: NW02
+      +tags: [nw02]
+    nw03:
+      +schema: NW03
+      +tags: [nw03]
+    nw04:
+      +schema: NW04
+      +tags: [nw04]
+    nw05:
+      +schema: NW05
+      +tags: [nw05]
+    common:
+      +schema: COMMON
+      +tags: [common]
+
+data_tests:
+  bcast_platform_dbt:
+    +severity: error
+    +store_failures: false

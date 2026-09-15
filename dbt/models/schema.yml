@@ -1,0 +1,103 @@
+version: 2
+
+models:
+  - &clean_model
+    name: clean_viewing_nw01
+    description: NW01 events after explicit genre mapping; no rows are filtered or deduplicated.
+    data_tests:
+      - not_null_columns: &clean_required
+          columns: [EVENT_ID, NETWORK_ID, DEVICE_ID, VIEW_FROM, VIEW_TO, GENRE, VIEW_MINUTES]
+      - accepted_values:
+          column_name: NETWORK_ID
+          values: [NW01]
+    columns:
+      - name: EVENT_ID
+        description: Event identifier, unique within this station, not across stations.
+        data_tests: [unique]
+      - name: NETWORK_ID
+        description: Station identifier retained from the raw event.
+      - name: DEVICE_ID
+        description: Synthetic shared device identifier, not a demographic attribute.
+      - name: VIEW_FROM
+        description: Start of the viewing interval, TIMESTAMP_NTZ.
+      - name: VIEW_TO
+        description: Exclusive end of the viewing interval, TIMESTAMP_NTZ.
+      - name: GENRE
+        description: Genre after case conversion, edge-space trimming and explicit fullwidth mappings.
+        data_tests:
+          - accepted_values:
+              values: [NEWS, DRAMA, VARIETY, ANIME, SPORTS]
+      - name: VIEW_MINUTES
+        description: Interval duration in minutes, calculated with millisecond precision as FLOAT.
+
+  - <<: *clean_model
+    name: clean_viewing_nw02
+    description: NW02 events after explicit genre mapping; no rows are filtered or deduplicated.
+    data_tests:
+      - not_null_columns: *clean_required
+      - accepted_values:
+          column_name: NETWORK_ID
+          values: [NW02]
+  - <<: *clean_model
+    name: clean_viewing_nw03
+    description: NW03 events after explicit genre mapping; no rows are filtered or deduplicated.
+    data_tests:
+      - not_null_columns: *clean_required
+      - accepted_values:
+          column_name: NETWORK_ID
+          values: [NW03]
+  - <<: *clean_model
+    name: clean_viewing_nw04
+    description: NW04 events after explicit genre mapping; no rows are filtered or deduplicated.
+    data_tests:
+      - not_null_columns: *clean_required
+      - accepted_values:
+          column_name: NETWORK_ID
+          values: [NW04]
+  - <<: *clean_model
+    name: clean_viewing_nw05
+    description: NW05 events after explicit genre mapping; no rows are filtered or deduplicated.
+    data_tests:
+      - not_null_columns: *clean_required
+      - accepted_values:
+          column_name: NETWORK_ID
+          values: [NW05]
+
+  - &daily_model
+    name: mart_device_daily_nw01
+    description: NW01 device/day/genre aggregate; each event belongs to its start date.
+    data_tests:
+      - not_null_columns:
+          columns: [NETWORK_ID, DEVICE_ID, VIEW_DATE, GENRE, SESSION_COUNT, VIEW_MINUTES]
+      - unique_grain:
+          columns: [NETWORK_ID, DEVICE_ID, VIEW_DATE, GENRE]
+    columns:
+      - name: NETWORK_ID
+        description: Station identifier, part of the four-column grain.
+      - name: DEVICE_ID
+        description: Shared synthetic device identifier, part of the four-column grain.
+      - name: VIEW_DATE
+        description: Date of VIEW_FROM in the NTZ input; midnight-spanning sessions stay on their start date.
+      - name: GENRE
+        description: Normalized genre, part of the four-column grain.
+      - name: SESSION_COUNT
+        description: Number of input events for this station/device/start-date/genre, INTEGER.
+      - name: VIEW_MINUTES
+        description: Sum of event minutes for this grain, FLOAT, without display rounding.
+
+  - <<: *daily_model
+    name: mart_device_daily_nw02
+    description: NW02 device/day/genre aggregate; each event belongs to its start date.
+  - <<: *daily_model
+    name: mart_device_daily_nw03
+    description: NW03 device/day/genre aggregate; each event belongs to its start date.
+  - <<: *daily_model
+    name: mart_device_daily_nw04
+    description: NW04 device/day/genre aggregate; each event belongs to its start date.
+  - <<: *daily_model
+    name: mart_device_daily_nw05
+    description: NW05 device/day/genre aggregate; each event belongs to its start date.
+
+  - <<: *daily_model
+    name: viewing_daily
+    description: UNION ALL of five already-materialized station marts; preserves station/device/day/genre grain.

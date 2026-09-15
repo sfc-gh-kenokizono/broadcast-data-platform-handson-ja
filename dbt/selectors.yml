@@ -1,0 +1,31 @@
+selectors:
+  - name: nw01
+    definition:
+      method: tag
+      value: nw01
+      indirect_selection: cautious
+  - name: nw02
+    definition:
+      method: tag
+      value: nw02
+      indirect_selection: cautious
+  - name: nw03
+    definition:
+      method: tag
+      value: nw03
+      indirect_selection: cautious
+  - name: nw04
+    definition:
+      method: tag
+      value: nw04
+      indirect_selection: cautious
+  - name: nw05
+    definition:
+      method: tag
+      value: nw05
+      indirect_selection: cautious
+  - name: common
+    definition:
+      method: tag
+      value: common
+      indirect_selection: cautious

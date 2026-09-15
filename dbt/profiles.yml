@@ -1,0 +1,57 @@
+bcast_platform:
+  target: nw01
+  outputs:
+    nw01:
+      type: snowflake
+      account: ''
+      user: ''
+      role: BCAST_PLATFORM_ENGINEER_ROLE
+      database: BCAST_PLATFORM_HANDSON
+      schema: NW01
+      warehouse: BCAST_PLATFORM_NW01_WH
+      threads: 4
+    nw02:
+      type: snowflake
+      account: ''
+      user: ''
+      role: BCAST_PLATFORM_ENGINEER_ROLE
+      database: BCAST_PLATFORM_HANDSON
+      schema: NW02
+      warehouse: BCAST_PLATFORM_NW02_WH
+      threads: 4
+    nw03:
+      type: snowflake
+      account: ''
+      user: ''
+      role: BCAST_PLATFORM_ENGINEER_ROLE
+      database: BCAST_PLATFORM_HANDSON
+      schema: NW03
+      warehouse: BCAST_PLATFORM_NW03_WH
+      threads: 4
+    nw04:
+      type: snowflake
+      account: ''
+      user: ''
+      role: BCAST_PLATFORM_ENGINEER_ROLE
+      database: BCAST_PLATFORM_HANDSON
+      schema: NW04
+      warehouse: BCAST_PLATFORM_NW04_WH
+      threads: 4
+    nw05:
+      type: snowflake
+      account: ''
+      user: ''
+      role: BCAST_PLATFORM_ENGINEER_ROLE
+      database: BCAST_PLATFORM_HANDSON
+      schema: NW05
+      warehouse: BCAST_PLATFORM_NW05_WH
+      threads: 4
+    common:
+      type: snowflake
+      account: ''
+      user: ''
+      role: BCAST_PLATFORM_ENGINEER_ROLE
+      database: BCAST_PLATFORM_HANDSON
+      schema: COMMON
+      warehouse: BCAST_PLATFORM_COMMON_WH
+      threads: 4
