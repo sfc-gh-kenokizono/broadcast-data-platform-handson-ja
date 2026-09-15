@@ -73,7 +73,7 @@ WITH selected_devices AS (
     FROM {PREDICTIONS_TABLE}
     GROUP BY DEVICE_ID
     HAVING COUNT(*) = 1
-)
+), prediction_counts AS (
 SELECT CASE
            WHEN prediction.PREDICTED_SPORTS_FAN = 1 THEN 'スポーツ関心あり（予測1）'
            WHEN prediction.PREDICTED_SPORTS_FAN = 0 THEN 'スポーツ関心なし（予測0）'
@@ -87,7 +87,13 @@ FROM selected_devices AS selected
 LEFT JOIN unique_predictions AS prediction
   ON selected.DEVICE_ID = prediction.DEVICE_ID
 GROUP BY PREDICTION_GROUP, prediction.MODEL_NAME, prediction.MODEL_VERSION
-ORDER BY PREDICTION_GROUP, prediction.MODEL_NAME, prediction.MODEL_VERSION
+), health AS (
+{PREDICTION_HEALTH_SQL}
+)
+SELECT health.ROW_COUNT, health.DEVICE_COUNT AS HEALTH_DEVICE_COUNT,
+       health.INVALID_COUNT, prediction_counts.*
+FROM health LEFT JOIN prediction_counts ON 1 = 1
+ORDER BY PREDICTION_GROUP, MODEL_NAME, MODEL_VERSION
 """, params
 
 

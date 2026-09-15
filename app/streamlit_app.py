@@ -1,11 +1,10 @@
 import pandas as pd
 import streamlit as st
-from snowflake.snowpark.exceptions import SnowparkSQLException
+from snowflake.snowpark.exceptions import SnowparkSQLException, SnowparkSessionException
 
 from queries import (
     BOUNDS_SQL,
     NETWORKS,
-    PREDICTION_HEALTH_SQL,
     aggregate_query,
     prediction_query,
     unavailable_object,
@@ -28,6 +27,9 @@ if st.sidebar.button("再読込"):
 
 try:
     bounds = query(BOUNDS_SQL).iloc[0]
+except SnowparkSessionException:
+    st.error("Snowflakeとの接続が切れました。アプリを再起動して再接続してください。解消しない場合は講師へ確認してください。")
+    st.stop()
 except SnowparkSQLException:
     st.error("COMMON.VIEWING_DAILY を取得できません。dbt の共通マート作成とアプリ実行ロールの権限を確認してください。")
     st.stop()
@@ -86,6 +88,8 @@ with counts_tab:
                     "DISTINCT_REACH": "リーチ（端末）", "TOTAL_MINUTES": "総視聴時間（分）",
                     "TOTAL_SESSIONS": "総視聴回数",
                 }), hide_index=True)
+    except SnowparkSessionException:
+        st.error("Snowflakeとの接続が切れました。表示済みの値は更新されていません。アプリを再起動して再接続してください。")
     except SnowparkSQLException:
         st.error("視聴実績の集計に失敗しました。共通マートの列・権限・ウェアハウスを確認してください。")
 
@@ -94,13 +98,16 @@ with predictions_tab:
     st.caption("視聴期間・局は対象端末を絞ります。予測そのものの学習期間や予測日時を絞る操作ではありません。")
     if st.checkbox("予測結果を表示", value=False):
         try:
-            health = query(PREDICTION_HEALTH_SQL).iloc[0]
+            result = query(*prediction_query(date_from, date_to, selected_networks))
+            health = result.iloc[0]
             if health["ROW_COUNT"] == 0:
                 st.info("予測テーブルは空です。第3章のモデル登録・推論完了後に再読込してください。")
-            elif health["ROW_COUNT"] != health["DEVICE_COUNT"] or health["INVALID_COUNT"]:
+            elif health["ROW_COUNT"] != health["HEALTH_DEVICE_COUNT"] or health["INVALID_COUNT"]:
                 st.error("予測データに重複端末・欠損・不正なクラスがあります。第3章の出力を確認してください。")
             else:
-                predictions = query(*prediction_query(date_from, date_to, selected_networks))
+                predictions = result.loc[result["DEVICE_COUNT"].notna()].drop(
+                    columns=["ROW_COUNT", "HEALTH_DEVICE_COUNT", "INVALID_COUNT"]
+                )
                 if predictions.empty:
                     st.info("この期間・放送局に視聴データはありません。")
                 else:
@@ -112,6 +119,8 @@ with predictions_tab:
                         "FIRST_PREDICTED_AT": "最初の保存日時（UTC）", "LAST_PREDICTED_AT": "最後の保存日時（UTC）",
                     }), hide_index=True)
                     st.caption("予測なしも含む対象端末数です。モデルとバージョンごとの内訳を示しています。日時は推論開始時刻ではなく、結果を保存したUTC時刻です。")
+        except SnowparkSessionException:
+            st.error("予測結果を取得する接続が切れました。アプリを再起動して再接続してください。表示済みの実績は更新されていません。")
         except SnowparkSQLException as error:
             if unavailable_object(error):
                 st.info("ML.PREDICTIONS が未作成、または参照権限がありません。第3章と ML スキーマの権限を確認してください。視聴実績はそのまま利用できます。")

@@ -9,7 +9,7 @@
 1. 第2章で5局と共通マートのbuild・テストがすべて成功したことを確認します。
 2. SnowsightのGit Workspaceで `notebooks/03_mlops.ipynb` を開きます。
 3. 講師が案内するPython実行環境に接続します。ローカルPCにPythonを入れる必要はありません。
-4. 実行ロールを `BCAST_PLATFORM_ENGINEER_ROLE` にします。Notebookは共通WH、`BCAST_PLATFORM_HANDSON`、`ML`スキーマを選択します。
+4. 画面の選択欄で実行ロールを `BCAST_PLATFORM_ENGINEER_ROLE`、WHを `BCAST_PLATFORM_COMMON_WH` にします。DB `BCAST_PLATFORM_HANDSON` と `ML`スキーマは最初のコードセルが設定します。画面でDB・スキーマの選択欄を探す必要はありません。
 5. `numpy`、`pandas`、`scikit-learn`、`snowflake-snowpark-python`、`snowflake-ml-python` が利用できることを確認します。
 
 WorkspaceのPython実行には利用可能なcompute poolと権限が必要です。第1章のSQLはcompute poolを準備しません。接続できない場合は講師に確認し、管理者ロールへ切り替えて進めないでください。
