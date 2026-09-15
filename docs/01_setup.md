@@ -45,6 +45,10 @@
 
 ## SQL
 
+### 0. 最初にSQLを開く
+
+まだGit Workspaceがない場合は、GitHubの `sql/01_setup.sql` を開き、内容をSnowsightのSQLワークシート、または自分のWorkspace内の新しいSQLファイルへ貼り付けます。管理者の案内に従って、次の専用環境の準備を行います。
+
 ### 1. 専用環境を作る
 
 `sql/01_setup.sql` をセクションごとに実行します。最初に10スキーマと6ウェアハウスを作り、必要な作成権限と参照権限を付与します。既定ロール・既定ウェアハウスは変更しません。
@@ -60,6 +64,24 @@
 `CREATE ... IF NOT EXISTS` は既存の中身を初期化しません。同名オブジェクトがあっても定義・所有者・権限が一致するとは限りません。別用途の同名環境があるときは停止してください。
 
 **セクション5で公開リポジトリに接続します。** Git用の秘密情報は不要です。Git API統合の許可URLはこの教材だけに限定します。
+
+### 受講用Git Workspaceを作る
+
+SQLで作るGitリポジトリオブジェクトは、ファイルを読み込むための接続先です。第2章以降でファイルを開くGit Workspaceとは別なので、次も行います。
+
+1. 教材ロールの付与を確認し、`BCAST_PLATFORM_ENGINEER_ROLE` を選びます。
+2. Snowsightの **Projects → Workspaces → From Git repository** を開きます。新規作成メニューの中にある場合もあります。
+3. URLに `https://github.com/sfc-gh-kenokizono/broadcast-data-platform-handson-ja.git`、API統合に `BCAST_PLATFORM_GIT_API`、ブランチに `main` を指定します。公開リポジトリなのでGit用シークレットは不要です。
+4. 自分用のWorkspaceを作り、名前を `broadcast-data-platform-handson-ja` にします。別の名前にした場合は第2章のSQL内のWorkspace名も合わせます。
+5. ファイル一覧に `README.md`、`dbt/dbt_project.yml`、`notebooks/03_mlops.ipynb` が見えることを確認します。ここからはこのWorkspace内のSQLと教材を開きます。
+
+画面で必要な項目を選べない場合は講師へ確認してください。SQLのGitリポジトリ作成が成功しただけで、Workspaceも作成済みとは判断しません。
+
+### 必須Notebookの実行準備
+
+第3章のNotebookには、共通WHとは別にPython実行用compute poolが必要です。これはStreamlitの補足経路だけの前提ではありません。演習開始前に、講師が利用するpool名・runtime名・必要パッケージと利用権限を準備して案内します。
+
+WorkspaceでNotebookを開き、接続画面から案内されたPython環境を選択できることを確認します。講師は利用者ごとに接続と指定ロールでの実行可否を確認してください。pool・runtimeが未指定、または接続できない場合は第3章を開始しません。教材SQLだけでこの準備が完了するわけではありません。
 
 ### 2. 内部ステージへ移し、RAWへ読み込む
 

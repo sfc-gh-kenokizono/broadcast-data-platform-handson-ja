@@ -26,7 +26,7 @@ RAW.VIEWING_LOG_NW05 -> NW05.CLEAN_VIEWING -> NW05.MART_DEVICE_DAILY --+
 | `NWxx.MART_DEVICE_DAILY` | 局 × 端末 × 日 × ジャンル | `NETWORK_ID, DEVICE_ID, VIEW_DATE, GENRE, SESSION_COUNT, VIEW_MINUTES` |
 | `COMMON.VIEWING_DAILY` | 局 × 端末 × 日 × ジャンル | 各局マートと同じ 6 列 |
 
-`VIEW_DATE` は `TO_DATE(VIEW_FROM)` です。日付をまたぐ区間も開始日の実績として扱い、日ごとの区間分割は行いません。`SESSION_COUNT` はイベント件数、`VIEW_MINUTES` はミリ秒差を 60,000 で割った分数の合計です。表示用の丸めは集計時に行いません。`TIMESTAMP_NTZ` にタイムゾーン変換は加えません。
+`VIEW_DATE` は `TO_DATE(VIEW_FROM)` です。日付をまたぐ区間も開始日の実績として扱い、日ごとの区間分割は行いません。`SESSION_COUNT` はイベント件数です。`VIEW_MINUTES` はミリ秒差を60,000で割り、小数点以下6桁の分数をFLOATへ変換して合計します。変換前の除算で丸めが入るため、厳密な無丸め計算ではありません。`TIMESTAMP_NTZ` にタイムゾーン変換は加えません。
 
 `EVENT_ID` の一意性は局内で検証します。共通マートでは `NETWORK_ID, DEVICE_ID, VIEW_DATE, GENRE` の **4 列の組**を検証します。端末は複数の局やジャンルに現れるため、`DEVICE_ID` 単独やジャンルを省いたキーを一意とはしません。ラベルや予測値は dbt の入力にも出力にも含めません。
 
@@ -124,6 +124,8 @@ EXECUTE DBT PROJECT FROM WORKSPACE USER$.PUBLIC."broadcast-data-platform-handson
 
 ### Common 前の成功確認
 
+NW01の実行結果で `STDOUT` を開き、`Completed successfully`、モデル2件・テスト7件、`ERROR=0 SKIP=0` を確認します。hookも成功数に含まれる場合があります。続いてSnowsightのMonitoring → Query History（クエリ履歴）を開き、実行者と実行時刻で絞ります。親のEXECUTE文だけでなく、NW01.CLEAN_VIEWING／NW01.MART_DEVICE_DAILYを作るCREATE TABLE AS SELECTと、`count(*) as failures`を返すテストSELECTを開き、Warehouseが `BCAST_PLATFORM_NW01_WH` であることを確認します。結果出力や履歴が見つからない場合は、そのまま次へ進まず講師に確認してください。
+
 - 同じコードと入力データに対する NW01 の最新 build が成功し、全 7 tests が pass。作成・検査の子 SQL は `BCAST_PLATFORM_NW01_WH`。
 - 同条件で NW02 の最新 build が成功し、全 7 tests が pass。作成・検査の子 SQL は `BCAST_PLATFORM_NW02_WH`。
 - 同条件で NW03 の最新 build が成功し、全 7 tests が pass。作成・検査の子 SQL は `BCAST_PLATFORM_NW03_WH`。
@@ -154,6 +156,8 @@ EXECUTE DBT PROJECT FROM WORKSPACE USER$.PUBLIC."broadcast-data-platform-handson
 **次章へのゲート（実行者が確認）:** common の 1 model と 3 tests がすべて成功し、skip/error なし、作成・検査の子 SQL が `BCAST_PLATFORM_COMMON_WH` を使い、局別モデルの再作成がないことを確認します。コードや入力を変更した場合は影響する局の build と common build をやり直します。`run` だけ、またはテストだけの成功は build 成功の代わりにしません。
 
 ## テストの範囲
+
+この38件は、データが存在することや全項目の計算結果まで保証する検査ではありません。空のテーブルでも通るため、各局build後に結果テーブルの行数を確認し、CLEAN_VIEWINGが3,600行、日次マートのSESSION_COUNT合計が3,600、COMMONの合計が18,000であることも確認してください。ジャンルの許容値検査は未整形の値を検出しますが、入力が別の有効なジャンルに誤変換された場合まで検出しません。
 
 | 検査 | 方法 | 実行スコープ |
 |---|---|---|
