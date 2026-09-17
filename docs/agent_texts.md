@@ -1,6 +1,22 @@
 # Agent に貼り付ける文章
 
-[第5章のGUI手順](05_agent.md) と一緒に使います。`sql/05_agent.sql` のフォールバックにも同じ文章を収録しています。文章・明示設定の一致と、GUI／SQL で作成した Agent の動作同等性は別であり、後者は未検証です。
+[第5章のGUI手順](05_agent.md)で、設定画面へ貼り付ける文章をまとめたページです。
+このページ全体を1つの入力欄へ貼るのではなく、**見出しに対応する欄へ、枠内の文章だけ**を貼り付けてください。
+
+説明文や指示は、Agentに「何を調べるか」「どう答えるか」を伝えるものです。
+数値そのものをここへ入力する必要はありません。
+
+| このページの項目 | 入力先・役割 |
+|---|---|
+| オブジェクト名・表示名 | 作成画面の名前。内部の識別名と利用者向けの名前 |
+| 説明 | Edit／About。Agentが扱うデータの紹介 |
+| Analyst ツール名・説明 | Tools → Cortex Analyst。数値を調べるツールの設定 |
+| Planning / Orchestration instructions | 調べ方のルール |
+| Response instructions | 回答文のルール |
+| 質問例 | Example questions。利用者が試せる質問 |
+
+設定欄の名称が異なる場合は、[第5章](05_agent.md)と講師の案内を確認してください。
+質問を送る前の権限確認と共有手順も、第5章にあります。
 
 ## オブジェクト名
 
@@ -28,7 +44,14 @@ VIEWING_AGENT
 SV_VIEWING
 ```
 
-Semantic view: `BCAST_PLATFORM_HANDSON.MART.SV_VIEWING`。Warehouse: `BCAST_PLATFORM_COMMON_WH`。Query timeout (seconds): `120`。Orchestration model: `Auto`。
+ツール名に加え、次の設定値も指定します。これは貼り付け文章ではなく、各設定欄に入れる値です。
+
+| 設定欄 | 値 |
+|---|---|
+| Semantic view | `BCAST_PLATFORM_HANDSON.MART.SV_VIEWING` |
+| Warehouse | `BCAST_PLATFORM_COMMON_WH` |
+| Query timeout (seconds) | `120` |
+| Orchestration model | `Auto` |
 
 ## Analyst ツールの説明
 
@@ -38,6 +61,9 @@ Semantic view: `BCAST_PLATFORM_HANDSON.MART.SV_VIEWING`。Warehouse: `BCAST_PLAT
 ```
 
 ## Planning / Orchestration instructions
+
+「どのデータを調べるか」「範囲外の質問へどう対応するか」を指示します。
+次の枠内をまとめて、この入力欄へ貼り付けます。
 
 ```text
 視聴実績の数値・比較・推移は必ず SV_VIEWING を使って取得してください。
@@ -52,6 +78,9 @@ Semantic view: `BCAST_PLATFORM_HANDSON.MART.SV_VIEWING`。Warehouse: `BCAST_PLAT
 
 ## Response instructions
 
+「日本語で答える」「期間や単位を添える」など、回答の書き方を指定します。
+上の調べ方の指示とは別の欄へ貼り付けてください。
+
 ```text
 日本語で簡潔に答え、数値には対象期間・放送局・ジャンル条件と単位を添えてください。
 リーチは端末数であり、人数や世帯数ではありません。合成データの教材であることを示してください。
@@ -62,7 +91,8 @@ Semantic view: `BCAST_PLATFORM_HANDSON.MART.SV_VIEWING`。Warehouse: `BCAST_PLAT
 
 ## 質問例
 
-1つずつ Example questions に追加します。検証済み SQL（VQR）として登録する文章ではありません。
+以下の3つを、1つずつ **Example questions** に追加します。
+これは利用者向けの質問例です。正しいSQLとの組を登録する「検証済みクエリ（VQR）」とは別です。
 
 ```text
 2026年7月1日から30日の全5局のリーチ、総視聴時間、総視聴回数を教えてください
@@ -75,3 +105,10 @@ Semantic view: `BCAST_PLATFORM_HANDSON.MART.SV_VIEWING`。Warehouse: `BCAST_PLAT
 ```text
 2026年7月1日から7日のNW01のジャンル別総視聴時間を教えてください
 ```
+
+## 入力できたら
+
+[第5章](05_agent.md)へ戻り、設定保存・共有・質問の動作確認へ進みます。
+
+`sql/05_agent.sql` の代替作成SQLにも同じ文章があります。
+文章が同じでも、GUIとSQLの作成・公開・回答が同じになることまで確認したわけではありません。
