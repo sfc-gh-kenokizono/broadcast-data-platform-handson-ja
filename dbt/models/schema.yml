@@ -3,7 +3,7 @@ version: 2
 models:
   - &clean_model
     name: clean_viewing_nw01
-    description: NW01 events after explicit genre mapping; no rows are filtered or deduplicated.
+    description: Exact six-column raw duplicates removed before genre normalization; retain only positive intervals up to 86400 seconds.
     data_tests:
       - not_null_columns: &clean_required
           columns: [EVENT_ID, NETWORK_ID, DEVICE_ID, VIEW_FROM, VIEW_TO, GENRE, VIEW_MINUTES]
@@ -17,7 +17,8 @@ models:
       - name: NETWORK_ID
         description: Station identifier retained from the raw event.
       - name: DEVICE_ID
-        description: Synthetic shared device identifier, not a demographic attribute.
+        description: Synthetic household TV identifier C000001 through C020000; not the identity of the current viewer.
+        data_tests: [synthetic_device_id]
       - name: VIEW_FROM
         description: Start of the viewing interval, TIMESTAMP_NTZ.
       - name: VIEW_TO
@@ -26,13 +27,13 @@ models:
         description: Genre after case conversion, edge-space trimming and explicit fullwidth mappings.
         data_tests:
           - accepted_values:
-              values: [NEWS, DRAMA, VARIETY, ANIME, SPORTS]
+              values: [NEWS, DRAMA, VARIETY, ANIME, SPORTS, MUSIC, MOVIE, INFO]
       - name: VIEW_MINUTES
-        description: Interval duration in minutes, calculated with millisecond precision as FLOAT.
+        description: Exact elapsed nanoseconds divided by 60000000000, stored as FLOAT minutes without rounding.
 
   - <<: *clean_model
     name: clean_viewing_nw02
-    description: NW02 events after explicit genre mapping; no rows are filtered or deduplicated.
+    description: NW02 exact raw deduplication, valid-interval filtering and eight-genre normalization.
     data_tests:
       - not_null_columns: *clean_required
       - accepted_values:
@@ -40,7 +41,7 @@ models:
           values: [NW02]
   - <<: *clean_model
     name: clean_viewing_nw03
-    description: NW03 events after explicit genre mapping; no rows are filtered or deduplicated.
+    description: NW03 exact raw deduplication, valid-interval filtering and eight-genre normalization.
     data_tests:
       - not_null_columns: *clean_required
       - accepted_values:
@@ -48,7 +49,7 @@ models:
           values: [NW03]
   - <<: *clean_model
     name: clean_viewing_nw04
-    description: NW04 events after explicit genre mapping; no rows are filtered or deduplicated.
+    description: NW04 exact raw deduplication, valid-interval filtering and eight-genre normalization.
     data_tests:
       - not_null_columns: *clean_required
       - accepted_values:
@@ -56,7 +57,7 @@ models:
           values: [NW04]
   - <<: *clean_model
     name: clean_viewing_nw05
-    description: NW05 events after explicit genre mapping; no rows are filtered or deduplicated.
+    description: NW05 exact raw deduplication, valid-interval filtering and eight-genre normalization.
     data_tests:
       - not_null_columns: *clean_required
       - accepted_values:
@@ -65,7 +66,7 @@ models:
 
   - &daily_model
     name: mart_device_daily_nw01
-    description: NW01 device/day/genre aggregate; each event belongs to its start date.
+    description: NW01 device/day/genre aggregate; whole cleaned intervals belong to their start date and start-program genre, not exact program watch time.
     data_tests:
       - not_null_columns:
           columns: [NETWORK_ID, DEVICE_ID, VIEW_DATE, GENRE, SESSION_COUNT, VIEW_MINUTES]
@@ -101,3 +102,60 @@ models:
   - <<: *daily_model
     name: viewing_daily
     description: UNION ALL of five already-materialized station marts; preserves station/device/day/genre grain.
+
+  - &minutes_model
+    name: viewing_minutes_nw01
+    description: One row per cleaned event and overlapping minute bucket; exclusive end, not second-by-second concurrency.
+    data_tests:
+      - not_null_columns:
+          columns: [EVENT_ID, NETWORK_ID, DEVICE_ID, MINUTE_AT, VIEW_DATE]
+      - unique_grain:
+          columns: [NETWORK_ID, EVENT_ID, MINUTE_AT]
+    columns:
+      - name: EVENT_ID
+        description: Cleaned event identifier retained for expansion reconciliation.
+      - name: NETWORK_ID
+        description: Station identifier.
+      - name: DEVICE_ID
+        description: Synthetic TV identifier; multiple events can intersect the same minute.
+      - name: MINUTE_AT
+        description: Start of a minute bucket intersecting the half-open viewing interval.
+      - name: VIEW_DATE
+        description: Date of MINUTE_AT; can differ from the original interval start date.
+  - <<: *minutes_model
+    name: viewing_minutes_nw02
+  - <<: *minutes_model
+    name: viewing_minutes_nw03
+  - <<: *minutes_model
+    name: viewing_minutes_nw04
+  - <<: *minutes_model
+    name: viewing_minutes_nw05
+
+  - &audience_model
+    name: mart_minute_audience_nw01
+    description: Distinct TVs intersecting each station minute bucket (分内視聴端末数), not people or simultaneous viewers at an exact second.
+    data_tests:
+      - not_null_columns:
+          columns: [NETWORK_ID, VIEW_DATE, MINUTE_AT, VIEWING_DEVICES]
+      - unique_grain:
+          columns: [NETWORK_ID, VIEW_DATE, MINUTE_AT]
+    columns:
+      - name: NETWORK_ID
+        description: Station identifier; do not sum station reaches into cross-station reach.
+      - name: VIEW_DATE
+        description: Date of the minute bucket.
+      - name: MINUTE_AT
+        description: Minute bucket start, TIMESTAMP_NTZ.
+      - name: VIEWING_DEVICES
+        description: Count of distinct DEVICE_ID values in the bucket, INTEGER.
+  - <<: *audience_model
+    name: mart_minute_audience_nw02
+  - <<: *audience_model
+    name: mart_minute_audience_nw03
+  - <<: *audience_model
+    name: mart_minute_audience_nw04
+  - <<: *audience_model
+    name: mart_minute_audience_nw05
+  - <<: *audience_model
+    name: minute_audience
+    description: UNION ALL of five materialized station minute marts only; no raw or expanded-row union.

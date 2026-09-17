@@ -1,13 +1,18 @@
 {% macro clean_viewing(raw_relation) %}
-with normalized as (
+with deduplicated as (
+    select distinct EVENT_ID, NETWORK_ID, DEVICE_ID, VIEW_FROM, VIEW_TO, GENRE
+    from {{ raw_relation }}
+    where VIEW_TO > VIEW_FROM
+      and datediff('nanosecond', VIEW_FROM, VIEW_TO) <= 86400000000000
+), normalized as (
     select
         EVENT_ID,
         NETWORK_ID,
         DEVICE_ID,
         VIEW_FROM,
         VIEW_TO,
-        upper(trim(GENRE, ' 　')) as GENRE_KEY
-    from {{ raw_relation }}
+        upper(trim(GENRE, ' \t\r\n　')) as GENRE_KEY
+    from deduplicated
 )
 select
     EVENT_ID,
@@ -21,8 +26,11 @@ select
         when 'ＶＡＲＩＥＴＹ' then 'VARIETY'
         when 'ＡＮＩＭＥ' then 'ANIME'
         when 'ＳＰＯＲＴＳ' then 'SPORTS'
+        when 'ＭＵＳＩＣ' then 'MUSIC'
+        when 'ＭＯＶＩＥ' then 'MOVIE'
+        when 'ＩＮＦＯ' then 'INFO'
         else GENRE_KEY
     end as GENRE,
-    (datediff('millisecond', VIEW_FROM, VIEW_TO) / 60000.0)::float as VIEW_MINUTES
+    (datediff('nanosecond', VIEW_FROM, VIEW_TO) / 60000000000.0)::float as VIEW_MINUTES
 from normalized
 {% endmacro %}

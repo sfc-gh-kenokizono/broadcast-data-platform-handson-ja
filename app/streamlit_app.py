@@ -6,6 +6,7 @@ from queries import (
     BOUNDS_SQL,
     NETWORKS,
     aggregate_query,
+    minute_query,
     prediction_query,
     unavailable_object,
 )
@@ -43,7 +44,8 @@ date_max = pd.Timestamp(bounds["DATE_MAX"]).date()
 with st.sidebar:
     selected_networks = st.multiselect("放送局", NETWORKS, default=list(NETWORKS))
     selected_dates = st.date_input(
-        "視聴期間", value=(date_min, date_max), min_value=date_min, max_value=date_max
+        "視聴期間", value=(date_min, date_max), min_value=date_min, max_value=date_max,
+        key="viewing_dates",
     )
 
 if not selected_networks:
@@ -59,7 +61,7 @@ if date_from > date_to:
     st.stop()
 
 st.caption(f"視聴期間: {date_from} ～ {date_to} ／ 放送局: {', '.join(selected_networks)}")
-counts_tab, predictions_tab = st.tabs(["視聴実績・推移", "スポーツ関心の予測"])
+counts_tab, predictions_tab, minute_tab = st.tabs(["視聴実績・推移", "F1同居の予測", "分内視聴端末数"])
 
 with counts_tab:
     try:
@@ -94,7 +96,9 @@ with counts_tab:
         st.error("視聴実績の集計に失敗しました。共通マートの列・権限・ウェアハウスを確認してください。")
 
 with predictions_tab:
-    st.caption("合成の二値スポーツ関心ラベルを学習した予測クラスです。確率・実測属性・性年代ではありません。")
+    st.caption("F1は20〜34歳の女性です。テレビに対応する合成世帯にF1が同居する確率と、0.5以上を1とする予測です。")
+    st.caption("いま見ている人の属性、実際のF1視聴者数、人数、確認済みの世帯数ではありません。確率の合計もこれらの数にはなりません。")
+    st.caption("確率が十分に校正されているとは限りません。0・1は予測ラベルであり、正解ラベルは表示しません。")
     st.caption("視聴期間・局は対象端末を絞ります。予測そのものの学習期間や予測日時を絞る操作ではありません。")
     if st.checkbox("予測結果を表示", value=False):
         try:
@@ -102,18 +106,40 @@ with predictions_tab:
             health = result.iloc[0]
             if health["ROW_COUNT"] == 0:
                 st.info("予測テーブルは空です。第3章のモデル登録・推論完了後に再読込してください。")
-            elif health["ROW_COUNT"] != health["HEALTH_DEVICE_COUNT"] or health["INVALID_COUNT"]:
-                st.error("予測データに重複端末・欠損・不正なクラスがあります。第3章の出力を確認してください。")
+            elif (
+                health["ROW_COUNT"] != health["HEALTH_DEVICE_COUNT"]
+                or health["INVALID_COUNT"] or health["INVALID_SELECTED_IDS"]
+            ):
+                st.error("予測データに重複端末・欠損・不正なクラス、確率、端末IDまたはモデル情報があります。第3章の出力と共通マートを確認してください。")
             else:
                 predictions = result.loc[result["DEVICE_COUNT"].notna()].drop(
-                    columns=["ROW_COUNT", "HEALTH_DEVICE_COUNT", "INVALID_COUNT"]
+                    columns=["ROW_COUNT", "HEALTH_DEVICE_COUNT", "INVALID_COUNT", "INVALID_SELECTED_IDS"]
                 )
                 if predictions.empty:
                     st.info("この期間・放送局に視聴データはありません。")
                 else:
                     counts = predictions.groupby("PREDICTION_GROUP")["DEVICE_COUNT"].sum()
+                    st.subheader("予測ラベル別の端末数")
                     st.bar_chart(counts.rename("端末数"))
-                    st.dataframe(predictions.rename(columns={
+                    histogram = predictions.dropna(subset=["PROBABILITY_BIN"]).groupby(
+                        "PROBABILITY_BIN"
+                    )["DEVICE_COUNT"].sum().reindex(range(10), fill_value=0)
+                    histogram.index = [
+                        f"{bucket / 10:.1f}以上 {(bucket + 1) / 10:.1f}{'以下' if bucket == 9 else '未満'}"
+                        for bucket in range(10)
+                    ]
+                    histogram.index.name = "F1同居確率"
+                    st.subheader("F1同居確率の分布")
+                    st.bar_chart(histogram.rename("端末数"))
+                    st.caption("予測のある対象端末だけを0.1刻みで数えています。最後の区間には確率1.0も含み、予測なしは含みません。")
+                    prediction_counts = predictions.groupby(
+                        ["PREDICTION_GROUP", "MODEL_NAME", "MODEL_VERSION"], dropna=False
+                    ).agg(
+                        DEVICE_COUNT=("DEVICE_COUNT", "sum"),
+                        FIRST_PREDICTED_AT=("FIRST_PREDICTED_AT", "min"),
+                        LAST_PREDICTED_AT=("LAST_PREDICTED_AT", "max"),
+                    ).reset_index()
+                    st.dataframe(prediction_counts.rename(columns={
                         "PREDICTION_GROUP": "予測クラス", "DEVICE_COUNT": "端末数",
                         "MODEL_NAME": "モデル", "MODEL_VERSION": "バージョン",
                         "FIRST_PREDICTED_AT": "最初の保存日時（UTC）", "LAST_PREDICTED_AT": "最後の保存日時（UTC）",
@@ -126,3 +152,36 @@ with predictions_tab:
                 st.info("ML.PREDICTIONS が未作成、または参照権限がありません。第3章と ML スキーマの権限を確認してください。視聴実績はそのまま利用できます。")
             else:
                 st.error("予測結果の取得に失敗しました。未作成とは限りません。列定義・権限・ウェアハウスを確認してください。視聴実績はそのまま利用できます。")
+
+with minute_tab:
+    minute_date = st.date_input(
+        "分別曲線の視聴日", value=date_from, min_value=date_min, max_value=date_max,
+        key="minute_date",
+    )
+    st.caption("選んだ1日と放送局の分内視聴端末数です。上の視聴期間とは別に、この日付を使います。")
+    st.caption("その1分間に少しでも視聴した端末を局ごとに数えます。同じ瞬間の視聴端末数ではありません。局別の値を足しても、局をまたぐ正確なリーチにはなりません。")
+    if st.checkbox("分別曲線を表示", value=False):
+        try:
+            minute_data = query(*minute_query(minute_date, selected_networks))
+            if minute_data.empty:
+                st.info("この日・放送局に分別の視聴データはありません。")
+            else:
+                minute_data["MINUTE_AT"] = pd.to_datetime(minute_data["MINUTE_AT"])
+                curves = minute_data.pivot(
+                    index="MINUTE_AT", columns="NETWORK_ID", values="VIEWING_DEVICES"
+                ).reindex(
+                    index=pd.date_range(minute_date, periods=1440, freq="min"),
+                    columns=selected_networks,
+                )
+                curves.index.name = "視聴時刻（1分単位）"
+                st.line_chart(curves)
+                st.caption("全5局を選ぶと5本の系列です。欠損はゼロ埋め・補間せず、合計線も作りません。")
+        except SnowparkSessionException:
+            st.error("分別曲線を取得する接続が切れました。アプリを再起動して再接続してください。")
+        except SnowparkSQLException as error:
+            if unavailable_object(error):
+                st.info("COMMON.MINUTE_AUDIENCE が未作成、または参照権限がありません。第2章の共通マートと所有者の権限を確認してください。")
+            else:
+                st.error("分別曲線の取得に失敗しました。列定義・権限・ウェアハウスを確認してください。未作成やゼロ件とは限りません。")
+        except ValueError:
+            st.error("分別データの時刻または局・分の一意性を確認してください。分別曲線の表示を停止しました。")
