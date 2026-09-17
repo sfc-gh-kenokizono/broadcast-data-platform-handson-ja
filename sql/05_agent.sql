@@ -1,6 +1,8 @@
 -- GUI が主経路です。docs/05_agent.md と docs/agent_texts.md を先に開いてください。
 -- 全選択で実行しないでください。以下は対象教材環境で参加者が選択実行する手順です。
--- 再生成した2026年5月から7月の教材用。今回のSQL・GUI/CoWorkは未検証。
+-- 2026-09-17の本編トライアルで、既存Agentのバックアップ後に検証用CREATE OR REPLACEとUSAGE付与が成功したとの報告。
+-- 参加者用は新規CREATEのままです。この文書更新ではSQLを再実行していません。
+-- GUIの作成・保存・公開とPlayground/CoWorkの実際の回答はUNTESTED（未検証）。
 USE ROLE BCAST_PLATFORM_ENGINEER_ROLE;
 USE WAREHOUSE BCAST_PLATFORM_COMMON_WH;
 
@@ -34,7 +36,7 @@ instructions:
     総視聴時間は VIEW_MINUTES の合計、総視聴回数は SESSION_COUNT の合計です。行数を視聴回数にしないでください。
     視聴区間全体を開始日と開始時のジャンルに計上しています。番組ごとの正確な視聴時間とは説明しないでください。
     期間が省略されたら2026-05-01から2026-07-31、局が省略されたら全5局を対象にして、その範囲を明示してください。指定された期間・局を勝手に置き換えないでください。
-    ジャンルは NEWS（ニュース）、DRAMA（ドラマ）、VARIETY（バラエティ）、ANIME（アニメ）、SPORTS（スポーツ）、MUSIC（音楽）、MOVIE（映画）、INFO（情報）、UNKNOWN（分類不明）、局は NW01からNW05です。
+    ジャンルは NEWS（ニュース）、DRAMA（ドラマ）、VARIETY（バラエティ）、ANIME（アニメ）、SPORTS（スポーツ）、MUSIC（音楽）、MOVIE（映画）、INFO（情報）の8種類だけで、それ以外は不正値です。局は NW01からNW05です。
     F1（20〜34歳の女性）の同居確率・同居予測・実際のF1視聴者数・モデル評価・性年代・番組内容の検索・広告接触・分別曲線はこのツールの対象外です。実績から推測せず、対象外と説明してください。
     ツールが失敗した場合は数値を生成せず、失敗を伝えてください。
   response: |

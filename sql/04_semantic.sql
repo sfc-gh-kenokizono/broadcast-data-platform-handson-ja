@@ -1,4 +1,6 @@
--- 再生成した2026年5月から7月の教材用。今回の定義・数値は実環境で未検証。
+-- 2026-09-17の本編トライアルで、既存SVのバックアップ後に検証用CREATE OR REPLACEが成功したとの報告。
+-- 元テーブルの直接SQLと一致: リーチ20,000台、回数1,050,000回、時間12,514,299.96658分。
+-- この文書更新ではSQLを再実行していません。GUI/CoWorkの実際の回答はUNTESTED（未検証）。
 -- 第2章の COMMON 作成後に、参加者が対象環境で実行します。
 -- 新規作成用。既存 SV_VIEWING は自動置換せず、定義を確認してから扱ってください。
 USE ROLE BCAST_PLATFORM_ENGINEER_ROLE;
@@ -18,7 +20,7 @@ CREATE SEMANTIC VIEW BCAST_PLATFORM_HANDSON.MART.SV_VIEWING
       COMMENT = 'NW01, NW02, NW03, NW04, NW05',
     viewing.genre AS GENRE
       WITH SYNONYMS = ('ジャンル')
-      COMMENT = '視聴開始時の番組ジャンル。NEWS=ニュース、DRAMA=ドラマ、VARIETY=バラエティ、ANIME=アニメ、SPORTS=スポーツ、MUSIC=音楽、MOVIE=映画、INFO=情報。UNKNOWNは分類不明'
+      COMMENT = '視聴開始時の番組ジャンル。NEWS=ニュース、DRAMA=ドラマ、VARIETY=バラエティ、ANIME=アニメ、SPORTS=スポーツ、MUSIC=音楽、MOVIE=映画、INFO=情報の8種類だけ。それ以外は不正値'
   )
   METRICS (
     viewing.distinct_reach AS COUNT(DISTINCT DEVICE_ID)
@@ -31,7 +33,7 @@ CREATE SEMANTIC VIEW BCAST_PLATFORM_HANDSON.MART.SV_VIEWING
       WITH SYNONYMS = ('総視聴回数', 'セッション数')
       COMMENT = '各整形済み視聴区間を1回として数えた回数の合計。マートの行数ではなく SESSION_COUNT を加算する'
   )
-  COMMENT = '5局共通の視聴実績。COMMON のみを参照。指標の実環境検証は教材実施時に行う';
+  COMMENT = '5局共通の視聴実績。COMMON のみを参照。受講時も同条件の元テーブル集計と指標を照合する';
 
 GRANT SELECT, REFERENCES ON SEMANTIC VIEW BCAST_PLATFORM_HANDSON.MART.SV_VIEWING
   TO ROLE BCAST_PLATFORM_ANALYST_ROLE;
