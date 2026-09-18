@@ -1,4 +1,4 @@
--- 01_setup.sqlの後に実行。F1_SIGNAL_V2タグ公開前は停止する。
+-- 01_setup.sqlの後に実行。固定データコミットを取得できなければ停止する。
 -- 同じリリースの再実行だけ許可。旧データは自動移行・削除しない。
 -- 移行が必要な場合は管理者が承認済みのバックアップ付き移行手順を実施する。
 USE ROLE BCAST_PLATFORM_ENGINEER_ROLE;
@@ -11,7 +11,7 @@ EXECUTE IMMEDIATE $$
 DECLARE
   incompatible_schema EXCEPTION (-20001, 'RAW schema mismatch. Stop; use approved backup-first migration, not a database reset.');
   incompatible_data EXCEPTION (-20002, 'Existing RAW data is unversioned, changed, or a different release. No overwrite authorized. Ask the maintainer to perform an approved backup-first migration, then rerun setup/load.');
-  incompatible_files EXCEPTION (-20003, 'F1_SIGNAL_V2 requires all eight release-tagged files, exact row counts, stable content keys and valid F1 labels. Do not fall back to main or old stage files.');
+  incompatible_files EXCEPTION (-20003, 'F1_SIGNAL_V2 requires all eight commit-pinned files, exact row counts, consistent per-load file keys and valid F1 labels. Do not fall back to main or old stage files.');
   stale_predictions EXCEPTION (-20005, 'Existing ML.PREDICTIONS lacks F1_SIGNAL_V2 provenance. Stop; approved backup-first migration must invalidate predictions before loading.');
   lock_failed EXCEPTION (-20006, 'Expected exactly one dataset load lock. Stop and repair setup; do not run concurrent setup/migration.');
   definitions RESULTSET;
@@ -197,7 +197,6 @@ BEGIN
     FULL OUTER JOIN IDENTIFIER(:manifest_table) AS incoming ON old.TABLE_NAME = incoming.TABLE_NAME
     WHERE old.DATASET_VERSION IS DISTINCT FROM incoming.DATASET_VERSION
        OR old.FILE_NAME IS DISTINCT FROM incoming.FILE_NAME
-       OR old.FILE_CONTENT_KEY IS DISTINCT FROM incoming.FILE_CONTENT_KEY
        OR old.ROW_COUNT IS DISTINCT FROM incoming.ROW_COUNT
        OR old.ROW_FINGERPRINT IS DISTINCT FROM incoming.ROW_FINGERPRINT;
     IF (metadata_count != 0 AND (metadata_count != 8 OR invalid_rows > 0)) THEN

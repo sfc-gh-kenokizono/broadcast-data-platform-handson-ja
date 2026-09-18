@@ -1,6 +1,6 @@
 -- GUI が主経路です。docs/05_agent.md と docs/agent_texts.md を先に開いてください。
 -- 全選択で実行しないでください。以下は対象教材環境で参加者が選択実行する手順です。
--- 2026-09-17の本編トライアルで、既存Agentのバックアップ後に検証用CREATE OR REPLACEとUSAGE付与が成功したとの報告。
+-- 2026-09-18にF1_SIGNAL_V2対応の代替DDLを、既存Agentのバックアップ後に検証用CREATE OR REPLACEで実行し、USAGE付与まで確認済み。
 -- 参加者用は新規CREATEのままです。この文書更新ではSQLを再実行していません。
 -- GUIの作成・保存・公開とPlayground/CoWorkの実際の回答はUNTESTED（未検証）。
 USE ROLE BCAST_PLATFORM_ENGINEER_ROLE;
