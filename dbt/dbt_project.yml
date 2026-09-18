@@ -11,6 +11,9 @@ test-paths: [tests]
 on-run-start:
   - "{{ assert_execution_scope() }}"
 
+on-run-end:
+  - "{{ assert_build_results_all_pass(results) }}"
+
 models:
   bcast_platform_dbt:
     +database: BCAST_PLATFORM_HANDSON

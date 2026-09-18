@@ -31,6 +31,6 @@ select
         when 'ＩＮＦＯ' then 'INFO'
         else GENRE_KEY
     end as GENRE,
-    (datediff('nanosecond', VIEW_FROM, VIEW_TO) / 60000000000.0)::float as VIEW_MINUTES
+    datediff('nanosecond', VIEW_FROM, VIEW_TO)::float / 60000000000.0 as VIEW_MINUTES
 from normalized
 {% endmacro %}

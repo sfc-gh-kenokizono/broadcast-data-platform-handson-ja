@@ -5,10 +5,12 @@ from snowflake.snowpark.exceptions import SnowparkSQLException, SnowparkSessionE
 from queries import (
     BOUNDS_SQL,
     NETWORKS,
+    PredictionValidationError,
     aggregate_query,
     minute_query,
     prediction_query,
     unavailable_object,
+    validate_prediction_snapshot,
 )
 
 
@@ -96,24 +98,22 @@ with counts_tab:
         st.error("視聴実績の集計に失敗しました。共通マートの列・権限・ウェアハウスを確認してください。")
 
 with predictions_tab:
-    st.caption("F1は20〜34歳の女性です。テレビに対応する合成世帯にF1が同居する確率と、0.5以上を1とする予測です。")
+    st.caption("F1は20〜34歳の女性です。テレビに対応する合成世帯のF1同居を予測します。予測ラベルは、モデルとともに保存した閾値以上を1とします。")
     st.caption("いま見ている人の属性、実際のF1視聴者数、人数、確認済みの世帯数ではありません。確率の合計もこれらの数にはなりません。")
-    st.caption("確率が十分に校正されているとは限りません。0・1は予測ラベルであり、正解ラベルは表示しません。")
+    st.caption("教師が学習可能な傾向を設計した合成データです。現実の世帯の同居確率・予測精度を保証しません。確率が十分に校正されているとは限らず、0・1は予測ラベルであり、正解ラベルは表示しません。")
     st.caption("視聴期間・局は対象端末を絞ります。予測そのものの学習期間や予測日時を絞る操作ではありません。")
+    st.caption("教材の対象は2026-05-01〜2026-07-31、全20,000端末です。予測はF1_SIGNAL_V2のみを表示し、検証と分布を同じSQL結果から取得します（キャッシュ最大60秒）。")
     if st.checkbox("予測結果を表示", value=False):
         try:
             result = query(*prediction_query(date_from, date_to, selected_networks))
-            health = result.iloc[0]
-            if health["ROW_COUNT"] == 0:
+            threshold, predictions = validate_prediction_snapshot(result)
+            if threshold is None:
                 st.info("予測テーブルは空です。第3章のモデル登録・推論完了後に再読込してください。")
-            elif (
-                health["ROW_COUNT"] != health["HEALTH_DEVICE_COUNT"]
-                or health["INVALID_COUNT"] or health["INVALID_SELECTED_IDS"]
-            ):
-                st.error("予測データに重複端末・欠損・不正なクラス、確率、端末IDまたはモデル情報があります。第3章の出力と共通マートを確認してください。")
             else:
-                predictions = result.loc[result["DEVICE_COUNT"].notna()].drop(
-                    columns=["ROW_COUNT", "HEALTH_DEVICE_COUNT", "INVALID_COUNT", "INVALID_SELECTED_IDS"]
+                st.caption(
+                    f"保存閾値: {threshold!r}（以上を予測1） ／ "
+                    f"モデル: TV_F1_PRESENCE_MODEL {result.iloc[0]['HEALTH_MODEL_VERSION']} ／ "
+                    "データセット: F1_SIGNAL_V2"
                 )
                 if predictions.empty:
                     st.info("この期間・放送局に視聴データはありません。")
@@ -131,7 +131,7 @@ with predictions_tab:
                     histogram.index.name = "F1同居確率"
                     st.subheader("F1同居確率の分布")
                     st.bar_chart(histogram.rename("端末数"))
-                    st.caption("予測のある対象端末だけを0.1刻みで数えています。最後の区間には確率1.0も含み、予測なしは含みません。")
+                    st.caption("選択期間・局の対象端末を0.1刻みで数えています。最後の区間には確率1.0も含みます。")
                     prediction_counts = predictions.groupby(
                         ["PREDICTION_GROUP", "MODEL_NAME", "MODEL_VERSION"], dropna=False
                     ).agg(
@@ -144,14 +144,18 @@ with predictions_tab:
                         "MODEL_NAME": "モデル", "MODEL_VERSION": "バージョン",
                         "FIRST_PREDICTED_AT": "最初の保存日時（UTC）", "LAST_PREDICTED_AT": "最後の保存日時（UTC）",
                     }), hide_index=True)
-                    st.caption("予測なしも含む対象端末数です。モデルとバージョンごとの内訳を示しています。日時は推論開始時刻ではなく、結果を保存したUTC時刻です。")
+                    st.caption("全件検証済みの単一モデルバージョンによる対象端末数です。日時は推論開始時刻ではなく、結果を保存したUTC時刻です。")
         except SnowparkSessionException:
             st.error("予測結果を取得する接続が切れました。アプリを再起動して再接続してください。表示済みの実績は更新されていません。")
         except SnowparkSQLException as error:
             if unavailable_object(error):
                 st.info("ML.PREDICTIONS が未作成、または参照権限がありません。第3章と ML スキーマの権限を確認してください。視聴実績はそのまま利用できます。")
             else:
-                st.error("予測結果の取得に失敗しました。未作成とは限りません。列定義・権限・ウェアハウスを確認してください。視聴実績はそのまま利用できます。")
+                st.error("予測結果の取得に失敗しました。未作成とは限りません。旧形式の場合は第3章でPREDICTION_THRESHOLD・DATASET_VERSIONを含む予測を再作成してください。列定義・権限・ウェアハウスも確認してください。ゼロ件としては扱いません。視聴実績はそのまま利用できます。")
+        except PredictionValidationError as error:
+            st.error(str(error))
+        except (ValueError, TypeError, KeyError, OverflowError):
+            st.error("予測の検証結果の形式が不正です。第3章の出力・列定義を確認してください。予測は表示しません。")
 
 with minute_tab:
     minute_date = st.date_input(

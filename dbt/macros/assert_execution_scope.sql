@@ -17,6 +17,9 @@
         {% endif %}
         {% for resource_id in selected_resources %}
             {% set resource = graph.nodes.get(resource_id) %}
+            {% if not resource %}
+                {{ exceptions.raise_compiler_error('Unknown selected resource: ' ~ resource_id) }}
+            {% endif %}
             {% if resource and resource.resource_type in ['model', 'test'] %}
                 {% set owners = [] %}
                 {% for scope in scopes if scope in resource.tags %}
@@ -39,6 +42,30 @@
                         '. Use --selector ' ~ target.name ~ ' without graph expansion.'
                     ) }}
                 {% endif %}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+{% endmacro %}
+
+{% macro assert_build_results_all_pass(results) %}
+    {% set command = flags.WHICH if flags is defined and flags.WHICH is defined else 'build' %}
+    {% if execute and command in ['build', 'run', 'test'] %}
+        {% set completed = [] %}
+        {% for result in results %}
+            {% if result.node.resource_type in ['model', 'test'] %}
+                {% do completed.append(result.node.unique_id) %}
+                {% if result.status | string | lower not in ['success', 'pass'] %}
+                    {{ exceptions.raise_compiler_error('Pipeline gate failed: ' ~ result.node.name ~ ' status=' ~ result.status) }}
+                {% endif %}
+            {% endif %}
+        {% endfor %}
+        {% if not completed %}
+            {{ exceptions.raise_compiler_error('Pipeline gate failed: no model/test results.') }}
+        {% endif %}
+        {% for resource_id in selected_resources %}
+            {% set resource = graph.nodes.get(resource_id) %}
+            {% if resource and resource.resource_type in ['model', 'test'] and resource_id not in completed %}
+                {{ exceptions.raise_compiler_error('Pipeline gate failed: missing result for ' ~ resource.name) }}
             {% endif %}
         {% endfor %}
     {% endif %}

@@ -13,8 +13,15 @@ DECLARE
   column_count INTEGER;
   legacy_columns INTEGER;
   label_rows INTEGER;
+  release_tables INTEGER;
 BEGIN
   IF (NOT confirm_disposable_small_labels) THEN
+    RAISE refused;
+  END IF;
+  SELECT COUNT(*) INTO :release_tables
+  FROM BCAST_PLATFORM_HANDSON.INFORMATION_SCHEMA.TABLES
+  WHERE TABLE_SCHEMA = 'RAW' AND TABLE_NAME = 'DATASET_RELEASE_FILES';
+  IF (release_tables > 0) THEN
     RAISE refused;
   END IF;
   SELECT COUNT(*), COUNT_IF(

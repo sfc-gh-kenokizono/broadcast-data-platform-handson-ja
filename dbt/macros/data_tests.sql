@@ -20,7 +20,7 @@ from {{ clean_relation }}
 where VIEW_TO <= VIEW_FROM
    or datediff('nanosecond', VIEW_FROM, VIEW_TO) > 86400000000000
    or VIEW_MINUTES <= 0
-   or abs(VIEW_MINUTES - datediff('nanosecond', VIEW_FROM, VIEW_TO) / 60000000000.0) > 0.000000001
+   or abs(VIEW_MINUTES - datediff('nanosecond', VIEW_FROM, VIEW_TO)::float / 60000000000.0) > 0.000000001
    or VIEW_FROM is null
    or VIEW_TO is null
    or VIEW_MINUTES is null
@@ -42,7 +42,7 @@ with raw_valid as (
       and datediff('nanosecond', VIEW_FROM, VIEW_TO) <= 86400000000000
 ), expected as (
     select count(*) as SESSIONS,
-           coalesce(sum(datediff('nanosecond', VIEW_FROM, VIEW_TO) / 60000000000.0), 0) as MINUTES
+           coalesce(sum(datediff('nanosecond', VIEW_FROM, VIEW_TO)::float / 60000000000.0), 0) as MINUTES
     from raw_valid
 ), clean as (
     select count(*) as SESSIONS, coalesce(sum(VIEW_MINUTES), 0) as MINUTES
@@ -63,6 +63,7 @@ with raw_valid as (
      and expected_daily.VIEW_DATE = actual_daily.VIEW_DATE
      and expected_daily.GENRE = actual_daily.GENRE
     where expected_daily.DEVICE_ID is null or actual_daily.DEVICE_ID is null
+       or actual_daily.SESSION_COUNT is null or actual_daily.VIEW_MINUTES is null
        or expected_daily.SESSIONS != actual_daily.SESSION_COUNT
        or abs(expected_daily.MINUTES - actual_daily.VIEW_MINUTES) > greatest(0.000001, abs(expected_daily.MINUTES) * 0.000000001)
 )
@@ -121,6 +122,11 @@ from expected full outer join actual
   on expected.NETWORK_ID = actual.NETWORK_ID
  and expected.VIEW_DATE = actual.VIEW_DATE and expected.MINUTE_AT = actual.MINUTE_AT
 where expected.NETWORK_ID is null or actual.NETWORK_ID is null
+   or expected.VIEW_DATE is null or actual.VIEW_DATE is null
+   or expected.MINUTE_AT is null or actual.MINUTE_AT is null
+   or actual.VIEWING_DEVICES is null or actual.VIEWING_DEVICES <= 0
+   or actual.MINUTE_AT != date_trunc('minute', actual.MINUTE_AT)
+   or actual.VIEW_DATE != to_date(actual.MINUTE_AT)
    or expected.VIEWING_DEVICES != actual.VIEWING_DEVICES
 {% endmacro %}
 
@@ -130,9 +136,12 @@ with expected as (
     {% for station in ['nw01', 'nw02', 'nw03', 'nw04', 'nw05'] %}
     select '{{ station | upper }}' as NETWORK_ID, count(*) as ROW_COUNT,
            {% if daily %}
-           coalesce(sum(SESSION_COUNT), 0) as TOTAL_COUNT, coalesce(sum(VIEW_MINUTES), 0) as TOTAL_MINUTES
+           coalesce(sum(SESSION_COUNT), 0) as TOTAL_COUNT, coalesce(sum(VIEW_MINUTES), 0) as TOTAL_MINUTES,
+           count_if(SESSION_COUNT is null or VIEW_MINUTES is null) as INVALID_ROWS
            {% else %}
-           coalesce(sum(VIEWING_DEVICES), 0) as TOTAL_COUNT, 0 as TOTAL_MINUTES
+           coalesce(sum(VIEWING_DEVICES), 0) as TOTAL_COUNT, 0 as TOTAL_MINUTES,
+           count_if(VIEWING_DEVICES is null or VIEWING_DEVICES <= 0 or MINUTE_AT is null
+                    or VIEW_DATE is null or VIEW_DATE != to_date(MINUTE_AT)) as INVALID_ROWS
            {% endif %}
     from {{ ref(('mart_device_daily_' if daily else 'mart_minute_audience_') ~ station) }}
     {% if not loop.last %}union all{% endif %}
@@ -140,9 +149,12 @@ with expected as (
 ), actual as (
     select NETWORK_ID, count(*) as ROW_COUNT,
            {% if daily %}
-           coalesce(sum(SESSION_COUNT), 0) as TOTAL_COUNT, coalesce(sum(VIEW_MINUTES), 0) as TOTAL_MINUTES
+           coalesce(sum(SESSION_COUNT), 0) as TOTAL_COUNT, coalesce(sum(VIEW_MINUTES), 0) as TOTAL_MINUTES,
+           count_if(SESSION_COUNT is null or VIEW_MINUTES is null) as INVALID_ROWS
            {% else %}
-           coalesce(sum(VIEWING_DEVICES), 0) as TOTAL_COUNT, 0 as TOTAL_MINUTES
+           coalesce(sum(VIEWING_DEVICES), 0) as TOTAL_COUNT, 0 as TOTAL_MINUTES,
+           count_if(VIEWING_DEVICES is null or VIEWING_DEVICES <= 0 or MINUTE_AT is null
+                    or VIEW_DATE is null or VIEW_DATE != to_date(MINUTE_AT)) as INVALID_ROWS
            {% endif %}
     from {{ ref('viewing_daily' if daily else 'minute_audience') }}
     group by NETWORK_ID
@@ -154,6 +166,7 @@ select coalesce(expected.NETWORK_ID, actual.NETWORK_ID) as NETWORK_ID,
 from expected full outer join actual on expected.NETWORK_ID = actual.NETWORK_ID
 where expected.NETWORK_ID is null or actual.NETWORK_ID is null
    or expected.ROW_COUNT = 0 or expected.ROW_COUNT != actual.ROW_COUNT
+   or expected.INVALID_ROWS > 0 or actual.INVALID_ROWS > 0
    or expected.TOTAL_COUNT != actual.TOTAL_COUNT
    or abs(expected.TOTAL_MINUTES - actual.TOTAL_MINUTES) > greatest(0.000001, abs(expected.TOTAL_MINUTES) * 0.000000001)
 {% endmacro %}
