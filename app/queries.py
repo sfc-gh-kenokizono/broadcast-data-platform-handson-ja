@@ -108,8 +108,8 @@ WITH selected_devices AS (
     HAVING COUNT(*) = 1
 ), prediction_counts AS (
 SELECT CASE
-           WHEN prediction.PREDICTED_HAS_F1 = 1 THEN 'F1同居あり（予測1）'
-           WHEN prediction.PREDICTED_HAS_F1 = 0 THEN 'F1同居なし（予測0）'
+           WHEN prediction.PREDICTED_HAS_F1 = 1 THEN 'F1在籍あり（予測1）'
+           WHEN prediction.PREDICTED_HAS_F1 = 0 THEN 'F1在籍なし（予測0）'
            ELSE '予測なし'
        END AS PREDICTION_GROUP,
        CASE WHEN prediction.PROB_F1 = 1.0 THEN 9
@@ -197,7 +197,7 @@ def validate_prediction_snapshot(result):
         not 0 <= health["SELECTED_DEVICE_COUNT"] <= EXPECTED_DEVICES
         or counts.sum() != health["SELECTED_DEVICE_COUNT"]
         or not counts.map(lambda count: isfinite(float(count)) and count > 0 and count == int(count)).all()
-        or not predictions["PREDICTION_GROUP"].isin(["F1同居あり（予測1）", "F1同居なし（予測0）"]).all()
+        or not predictions["PREDICTION_GROUP"].isin(["F1在籍あり（予測1）", "F1在籍なし（予測0）"]).all()
         or not predictions["PROBABILITY_BIN"].isin(range(10)).all()
         or not predictions["MODEL_NAME"].eq("TV_F1_PRESENCE_MODEL").all()
         or not predictions["MODEL_VERSION"].eq(health["HEALTH_MODEL_VERSION"]).all()

@@ -50,7 +50,7 @@ GRANT SELECT, REFERENCES ON SEMANTIC VIEW BCAST_PLATFORM_HANDSON.MART.SV_VIEWING
 DESCRIBE SEMANTIC VIEW BCAST_PLATFORM_HANDSON.MART.SV_VIEWING;
 
 -- 定義した3指標を全5局・全ジャンル・下記期間で計算します。DIMENSIONSで分けていないので、結果は全体の1行です。
--- 値は実績のリーチ・分数・回数であり、F1同居確率やモデル評価ではありません。次の元表集計と比較します。
+-- 値は実績のリーチ・分数・回数であり、F1在籍確率やモデル評価ではありません。次の元表集計と比較します。
 SELECT * FROM SEMANTIC_VIEW(
   BCAST_PLATFORM_HANDSON.MART.SV_VIEWING
   METRICS viewing.distinct_reach, viewing.total_minutes, viewing.total_sessions

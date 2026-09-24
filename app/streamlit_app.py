@@ -1,4 +1,4 @@
-"""共通マートの視聴実績、検証済みのF1同居予測、局別の分内視聴端末数を表示します。"""
+"""共通マートの視聴実績、検証済みのF1在籍予測、局別の分内視聴端末数を表示します。"""
 
 import pandas as pd
 import streamlit as st
@@ -68,7 +68,7 @@ if date_from > date_to:
     st.stop()
 
 st.caption(f"視聴期間: {date_from} ～ {date_to} ／ 放送局: {', '.join(selected_networks)}")
-counts_tab, predictions_tab, minute_tab = st.tabs(["視聴実績・推移", "F1同居の予測", "分内視聴端末数"])
+counts_tab, predictions_tab, minute_tab = st.tabs(["視聴実績・推移", "F1在籍の予測", "分内視聴端末数"])
 
 # 集計はSnowflakeで行い、画面では集計済みの数値を表示します。リーチは集計単位ごとに重複除外した端末数です。
 with counts_tab:
@@ -106,9 +106,9 @@ with counts_tab:
 
 # 予測はチェックボックスが選ばれた場合だけ取得し、同じSQL結果の全件検証に通ってから分布を表示します。
 with predictions_tab:
-    st.caption("F1は20〜34歳の女性です。テレビに対応する合成世帯のF1同居を予測します。予測ラベルは、モデルとともに保存した閾値以上を1とします。")
+    st.caption("F1は20〜34歳の女性です。テレビに対応する合成世帯にF1がいるか（F1在籍）を予測します。20〜34歳の女性の単身世帯も含みます。予測ラベルは、モデルとともに保存した閾値以上を1とします。")
     st.caption("いま見ている人の属性、実際のF1視聴者数、人数、確認済みの世帯数ではありません。確率の合計もこれらの数にはなりません。")
-    st.caption("教師が学習可能な傾向を設計した合成データです。現実の世帯の同居確率・予測精度を保証しません。確率が十分に校正されているとは限らず、0・1は予測ラベルであり、正解ラベルは表示しません。")
+    st.caption("教師が学習可能な傾向を設計した合成データです。現実の世帯のF1在籍確率・予測精度を保証しません。確率が十分に校正されているとは限らず、0・1は予測ラベルであり、正解ラベルは表示しません。")
     st.caption("視聴期間・局は対象端末を絞ります。予測そのものの学習期間や予測日時を絞る操作ではありません。")
     st.caption("教材の対象は2026-05-01〜2026-07-31、全20,000端末です。予測はF1_SIGNAL_V2のみを表示し、検証と分布を同じSQL結果から取得します（キャッシュ最大60秒）。")
     if st.checkbox("予測結果を表示", value=False):
@@ -136,8 +136,8 @@ with predictions_tab:
                         f"{bucket / 10:.1f}以上 {(bucket + 1) / 10:.1f}{'以下' if bucket == 9 else '未満'}"
                         for bucket in range(10)
                     ]
-                    histogram.index.name = "F1同居確率"
-                    st.subheader("F1同居確率の分布")
+                    histogram.index.name = "F1在籍確率"
+                    st.subheader("F1在籍確率の分布")
                     st.bar_chart(histogram.rename("端末数"))
                     st.caption("選択期間・局の対象端末を0.1刻みで数えています。最後の区間には確率1.0も含みます。")
                     prediction_counts = predictions.groupby(

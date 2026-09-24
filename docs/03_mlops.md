@@ -46,7 +46,7 @@ V2は、学習結果を観察しやすいように世帯構成と視聴傾向の
 
 1. 第2章で5局と共通マートのbuild・テストがすべて成功したことを確認します。
 2. SnowsightのGit Workspaceで `notebooks/03_mlops.ipynb` を開きます。
-3. 講師が案内するPython実行環境に接続します。参加者のローカルPCでは実行しません。
+3. 下の「接続する環境」に従い、Notebookの接続メニューからPython実行環境を選びます。参加者のローカルPCでは実行しません。
 4. 実行ロールを `BCAST_PLATFORM_ENGINEER_ROLE`、WHを `BCAST_PLATFORM_COMMON_WH` にします。
 5. `numpy`、`pandas`、`scikit-learn`、`snowflake-snowpark-python`、`snowflake-ml-python` を利用できることを確認します。
 
@@ -54,6 +54,45 @@ DB `BCAST_PLATFORM_HANDSON` と `ML` スキーマは最初のコードセルで�
 既存の教材データがある場合は、[第1章の注意](01_setup.md#既存の環境がある場合)に従い、講師へ確認します。
 
 NotebookのPython環境と共通WHは別の計算環境です。特徴量の集計と登録モデルの推論はWH、学習はNotebookのPython環境で行います。サービスに接続できない場合は管理者ロールへ切り替えず講師へ確認します。サービス作成時の待機タイムアウトは15分を選び、選べない場合は講師の案内に従います。
+
+### 接続する環境
+
+runtimeはPythonとライブラリをまとめた実行環境、compute poolはその環境を動かす計算資源です。共通WHを選ぶだけではNotebookのPythonは動きません。
+
+| 設定 | 選ぶもの・確認すること |
+|---|---|
+| Python | 3.11 |
+| runtime | CPU版。動作実績のある基準は `V2.2-CPU-PY3.11`（Container Runtime 2.2） |
+| compute pool | 講師が指定した、Notebookで利用可能なCPU用pool。GPUは使いません |
+| Idle timeout | 15分。セルを実行していない時間が続くとサービスを停止する設定 |
+| 実行ロール | `BCAST_PLATFORM_ENGINEER_ROLE` |
+| Query warehouse | `BCAST_PLATFORM_COMMON_WH` |
+
+この基準ではSnowflake内の非対話実行で学習・モデル登録・WH推論までの動作実績があります。ただし、**新しい演習アカウントのWorkspace画面で同じ環境を選び、最後まで進めることは未確認**です。該当runtimeが表示されない場合は、別の版を自己判断で選ばず講師へ確認してください。
+
+1. Notebookの接続メニューを開き、講師が指定したサービスを選びます。新規作成する案内の場合は、上表の設定を使います。
+2. 接続が完了し、ロールとWHが上表どおりになっていることを確認します。poolが選べない場合、管理者にそのpoolの利用権限とNotebook実行の許可を確認してもらいます。
+3. 学習の前に、次のコードを一時的なPythonセルで実行します。表の作成や学習は行わず、環境の版だけを表示します。
+
+```python
+import sys
+from importlib.metadata import version
+
+print("Python:", sys.version.split()[0])
+for package in (
+    "numpy", "pandas", "scikit-learn",
+    "snowflake-snowpark-python", "snowflake-ml-python",
+):
+    print(f"{package}: {version(package)}")
+```
+
+**成功の見方：** Python 3.11と5パッケージの版がエラーなく表示されることを確認します。Snowflake側の動作実績では `snowflake-ml-python` は1.23.0でした。scikit-learnの版はその実行記録に残っていないため、検証済みの固定値とは案内しません。ローカル評価で使った1.5.1を、そのままSnowflake側の実績とは扱わないでください。
+
+版の表示だけではWH推論までの互換性は確定しません。講師は演習開始前に、選んだ環境でこの章の登録・推論・保存まで確認し、参加者にも同じ環境を案内します。パッケージがない・版が案内と違う場合は、無条件に最新版をインストールせず、表示内容を講師へ伝えて停止します。`app/environment.yml` は第4章のアプリ専用で、このNotebookの設定ファイルではありません。
+
+確認セルは削除して構いません。教材の設定セルに戻り、`SAVE_RESULTS = False` のまま先頭から進めます。サービスを停止・再開した場合は変数や追加パッケージが消えるため、環境を再確認し、教材の先頭から実行します。
+
+画面操作の詳細は[Notebookの計算環境の設定](https://docs.snowflake.com/en/user-guide/ui-snowsight/notebooks-in-workspaces/notebooks-in-workspaces-compute-setup)を参照してください。
 
 ## 2. データと正解の範囲を確認する
 
@@ -89,10 +128,12 @@ V2の配布データには、たとえば `C003612` がNW01を2026年5月3日21:
 | `INFO_SHARE` | 情報番組の時間割合 |
 | `TOTAL_MINUTES` | 全局・全対象日の総視聴時間（分） |
 | `TOTAL_SESSIONS` | 正常な元視聴区間の件数の合計 |
-| `ACTIVE_DAYS` | 視聴がある日数。複数局を見た同じ日は1日 |
+| `ACTIVE_DAYS` | 視聴区間の開始日を重複なく数えた日数。同じ日に複数局で開始しても1日 |
 | `MEAN_MINUTES` | 総視聴時間 ÷ 総視聴区間数 |
 
 ジャンル割合は各ジャンルの時間を総時間で割り、8項目の合計が1になることを確認します。日次マートは各区間の実経過秒数を60で割った時間を、開始日の開始時ジャンルに全量計上します。番組境界で分割した厳密な番組別視聴時間ではありません。
+
+例えば5月1日23:55〜5月2日00:05の1区間だけなら、`ACTIVE_DAYS`は開始日の1日です。翌日にも視聴時間がありますが、この特徴量では2日とは数えません。第4章の分別曲線では、翌日分の視聴も翌日の時間帯に表示されます。
 
 モデルへの入力は表の順番の12列だけです。端末ID、正解、ラベル公開フラグ、世帯構成は含めません。IDは結果をテレビへ対応付けるために別に保持します。IDの欠損・重複・範囲違い、非有限な特徴量、ラベル契約の不一致は直さずに通過させるのではなく停止して確認します。
 
