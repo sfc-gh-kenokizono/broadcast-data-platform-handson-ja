@@ -3,7 +3,7 @@
 -- 前提: 講師が指定したハンズオン用アカウントで、ACCOUNTADMINを使用できること。
 -- 実行方法: 接続先を確認し、上から順に実行してください。エラーが出たら後続へ進まないでください。
 -- 同名オブジェクトが別用途で存在する場合は実行しないでください。
--- 完了の目安: 最後のLISTで固定コミットのParquetファイル8個を確認できること。
+-- 完了の目安: 最後のLISTでmainブランチのdataフォルダにあるParquetファイル8個を確認できること。
 -- 1. 管理者による専用環境の準備
 -- ============================================
 USE ROLE ACCOUNTADMIN;
@@ -185,14 +185,14 @@ CREATE STAGE IF NOT EXISTS BCAST_PLATFORM_HANDSON.INTEGRATIONS.BCAST_PLATFORM_RA
 -- ============================================
 -- 5. 公開リポジトリに接続し、使用するデータを確認します。
 -- FETCHは必須です。Snowflake側のリポジトリ情報を取得してからLISTを実行してください。
--- commits/<固定コミットID>/data/は、指定時点の内容を参照する仮想的なスナップショットです。
--- GitHubに「commits」というフォルダーを作る必要はありません。固定コミットIDは変更しないでください。
+-- GitHubのリポジトリは用意済みです。下のCREATEは、Snowflake側に取込用の参照先を作ります。
+-- branches/main/data/は、取得したmainブランチのdataフォルダを指します。LISTは一覧表示だけで、取込は行いません。
 -- Parquetが8個（局別ログ5、番組マスタ1、放送予定1、ラベル1）あることを確認します。
 -- FETCH・LIST・ファイル読取でエラーが出たら、表示内容を確認して講師に連絡してください。
--- branches/mainへ切り替えて続行せず、02_load_parquet.sqlへ進まないでください。
+-- 8ファイルを確認できたら、第1章に沿ってGit Workspaceを作り、その中で02_load_parquet.sqlを開きます。
 -- ============================================
 CREATE GIT REPOSITORY IF NOT EXISTS BCAST_PLATFORM_HANDSON.INTEGRATIONS.BCAST_PLATFORM_REPO
   API_INTEGRATION = BCAST_PLATFORM_GIT_API
   ORIGIN = 'https://github.com/sfc-gh-kenokizono/broadcast-data-platform-handson-ja.git';
 ALTER GIT REPOSITORY BCAST_PLATFORM_HANDSON.INTEGRATIONS.BCAST_PLATFORM_REPO FETCH;
-LIST @BCAST_PLATFORM_HANDSON.INTEGRATIONS.BCAST_PLATFORM_REPO/commits/8a6f0cc234b30c3b54a4a63d68890bb7cb9f8887/data/;
+LIST @BCAST_PLATFORM_HANDSON.INTEGRATIONS.BCAST_PLATFORM_REPO/branches/main/data/;

@@ -9,6 +9,14 @@
 **この章のゴールは、8ファイルを取り込み、5局のRAWが合計1,050,648行、ラベルが20,000台分になっていることです。**
 期間は2026年5月1日〜7月31日です。局によって行数は異なります。
 
+## この章の進め方
+
+1. [実行前の確認](#実行前の確認)で、演習用アカウント・権限・既存環境を確認します。
+2. [GitHubで最初のSQLを開き](#1-最初のセットアップsqlを開く)、Snowsightに貼り付けます。GitHubリポジトリの新規作成は不要です。
+3. [SQL内の第1〜5節を実行](#2-専用環境とgit接続を作る)します。第5節がSnowflakeのGit Repositoryを作成します。
+4. 第5節の `LIST` が成功し、8個のParquetが見えたら、[Git Workspaceを作ります](#受講用git-workspaceを作る)。
+5. Workspaceで [sql/02_load_parquet.sql](../sql/02_load_parquet.sql)を開き、[検査・取込](#3-parquetをrawテーブルへ読み込む)と[結果確認](#動作確認)を行います。
+
 ## まず、登場するものを整理する
 
 | 言葉 | 何に使うもの？ |
@@ -35,18 +43,14 @@ Snowflakeの内部ステージ
 
 ### Gitの接続とWorkspaceはどう違う？
 
-**GitHubリポジトリ**は、教材の配布元です。
-**Git Workspace**は、その教材をSnowsightで開いて操作する、自分用の作業場所です。
+| 対象 | いつ作る？ | 役割 |
+|---|---|---|
+| GitHubリポジトリ | 配布元として作成済み。受講者の新規作成は不要 | 教材コードとデータの配布元 |
+| Git API統合 `BCAST_PLATFORM_GIT_API` | `sql/01_setup.sql` 第3節 | この教材のGitHub URLへの接続を許可 |
+| SnowflakeのGit Repository `BCAST_PLATFORM_REPO` | `sql/01_setup.sql` 第5節 | SQLから配布ファイルを参照し、データを取り込むための接続先 |
+| 自分用のGit Workspace | 第5節の `LIST` 成功後、Snowsightで作成 | SQL・dbt・Notebook・アプリのファイルを開く作業場所 |
 
-初期SQLでは、これとは別に次の2つを作ります。
-
-| 作るもの | 役割 |
-|---|---|
-| Git API統合 `BCAST_PLATFORM_GIT_API` | この教材のGitHub URLへの接続を許可する設定 |
-| Gitリポジトリオブジェクト `BCAST_PLATFORM_REPO` | SQLから配布ファイルを参照するための接続先 |
-
-SQLで接続先ができても、Workspaceが自動でできるわけではありません。
-**初期SQLを実行してから、画面でGit Workspaceを作る**順で進めます。
+**SQLで接続先を作っても、Git Workspaceは自動作成されません。** `LIST` で8ファイルを確認してから、下記の画面操作へ進みます。
 
 ## 実行前の確認
 
@@ -91,7 +95,7 @@ SQLで接続先ができても、Workspaceが自動でできるわけではあ�
 | 2. 権限 | エンジニア用の作成権限、アナリスト用の参照権限 | 権限付与のSQLにエラーがない |
 | 3. Git API統合 | 教材のGitHub URLへ接続する許可 | `BCAST_PLATFORM_GIT_API` が作られる |
 | 4. RAWとステージ | 空のテーブル、内部ステージ、Parquetの読込設定 | この時点ではテーブルは空でよい |
-| 5. 公開リポジトリ接続 | GitHubへ接続してファイル一覧を取得 | 最後の `LIST` に8個のParquetが見える |
+| 5. 公開リポジトリ接続 | SnowflakeのGit Repositoryを作り、`FETCH` で配布元を取得 | 最後の `LIST` で `main` の `data/` に8個のParquetが見える |
 
 `LIST` はファイルの一覧を表示するだけです。8個が見えても、まだテーブルへデータを読み込んだことにはなりません。取込は、この章の第3節で行います。
 
@@ -123,7 +127,7 @@ SQLで接続先ができても、Workspaceが自動でできるわけではあ�
 
 ## 受講用Git Workspaceを作る
 
-Git API統合とリポジトリ接続ができたら、教材を操作するWorkspaceを作ります。
+**`sql/01_setup.sql` 第5節の `LIST` が成功し、8個のParquetを確認してから**、教材を操作するWorkspaceを作ります。`LIST` が失敗した場合は、ここへ進まず講師へ確認してください。
 
 1. Snowsightで `BCAST_PLATFORM_ENGINEER_ROLE` を選びます。
 2. **Projects → Workspaces → From Git repository** を開きます。新規作成メニュー内にある場合もあります。
@@ -145,7 +149,7 @@ Workspaceのファイル一覧で、次が見えることを確認します。
 - `data/`：8個のParquet。
 
 ここから先は、このWorkspace内で教材やSQLを開きます。
-Workspaceでは講師が案内した `main` の教材コードを使います。データの取込元は、次の節で説明する固定の保存内容を参照します。
+Workspaceでは `main` の教材コードを使います。SQLのデータ取込元も、公開リポジトリの `main` にある `data/` です。
 Workspaceだけを編集しても、SQLの取込元ファイルは更新されません。
 
 Workspace名を別の名前にした場合は、第2章のSQL内のWorkspace名も合わせます。
@@ -166,11 +170,13 @@ Workspaceで [sql/02_load_parquet.sql](../sql/02_load_parquet.sql) を開きま�
 ### ② 検査・取込ブロックを実行する
 
 ブロックは列定義を確認し、`FETCH` で公開済みの教材を取得します。
-データは `/commits/8a6f0cc234b30c3b54a4a63d68890bb7cb9f8887/data/` から読みます。これは、Gitに保存したある時点の内容（スナップショット）の `data` フォルダです。長い英数字はその版を特定する番号で、受講者が入力し直したり変更したりするものではありません。
+データは `/branches/main/data/` から読みます。これは公開リポジトリの `main` ブランチにある `data` フォルダです。
 
 そこから視聴記録5個、番組マスタ、放送予定、ラベルを、内部ステージの `/F1_SIGNAL_V2/` へコピーします。`F1_SIGNAL_V2` はデータ版とコピー先のフォルダ名です。
-セットアップSQLの `LIST` も同じ保存内容を参照します。取得できない場合は停止し、取込元を `main` やタグへ切り替えず講師へ確認してください。
+セットアップSQLの `LIST` も同じ `/branches/main/data/` を参照します。取得できない場合は停止し、別の取込元や以前のステージファイルで続行せず講師へ確認してください。
 ファイル名は `viewing_log_nw01.parquet`〜`viewing_log_nw05.parquet`、`program_master.parquet`、`program_schedule.parquet`、`device_labels.parquet` です。
+
+> `main` は更新可能です。**ドライラン中は配布元のデータを変更しません。** 既に保存した内容と異なるデータは、同じ `F1_SIGNAL_V2` という版名でもロードが拒否します。記録や既存データを消して回避しないでください。
 
 8ファイルを一時テーブルへ読み、検査が終わるまでそこに保持します。コピー結果が8件であること、列定義・ラベル20,000台・正解あり2,000台を検査します。
 `COPY FILES` は存在しないファイルをスキップする場合があるため、ステージに古いファイルが見えるだけでは成功としません。

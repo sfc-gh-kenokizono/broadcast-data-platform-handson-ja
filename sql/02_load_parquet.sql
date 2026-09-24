@@ -1,11 +1,11 @@
--- 目的: 固定コミットのParquetファイル8個を確認し、教材のRAWテーブルに取り込みます。
+-- 目的: mainブランチのdataフォルダにあるParquetファイル8個を確認し、教材のRAWテーブルに取り込みます。
 -- 前提: 01_setup.sqlが完了し、最後のLISTで8個のファイルを確認できていること。
 -- 実行方法: 同じハンズオン用アカウントで上から順に実行します。
 -- EXECUTE IMMEDIATE $$から対応する$$;までは1つの処理です。途中だけを選択して実行しないでください。
 -- 完了の目安: 最後の結果にF1_SIGNAL_V2の8行が表示され、各ROW_COUNTが下のEXPECTED_ROWSと一致します。
 -- 再実行できるのは同じ版・同じ内容のデータだけです。旧データは自動移行・削除しません。
 -- 移行が必要な場合は作業を止めて講師に相談し、管理者が承認済みのバックアップ付き手順を実施します。
--- 読取エラー時は表示内容を確認し、mainや以前のステージファイルへ切り替えて続行しないでください。
+-- 読取エラー時は作業を止め、講師へ確認してください。別のブランチや以前のファイルに切り替えないでください。
 USE ROLE BCAST_PLATFORM_ENGINEER_ROLE;
 USE SECONDARY ROLES NONE;
 USE DATABASE BCAST_PLATFORM_HANDSON;
@@ -18,7 +18,7 @@ DECLARE
   -- エラーは確認を省略して進める合図ではありません。内容を講師に伝え、原因を確認してください。
   incompatible_schema EXCEPTION (-20001, '取込先テーブルの列名または型が教材と一致しません。ここで作業を止め、既存データを削除・上書きせずに講師へ確認してください。');
   incompatible_data EXCEPTION (-20002, '既にあるデータが、この教材の版と一致しません。上書きは行いません。作業を止めて講師に連絡し、管理者が承認したバックアップ付きの手順を実施してから、01_setup.sqlと02_load_parquet.sqlをやり直してください。');
-  incompatible_files EXCEPTION (-20003, '固定した版のファイル8個、想定の行数、有効なラベルを確認できませんでした。mainブランチや以前のファイルへ切り替えず、作業を止めて講師に確認してください。');
+  incompatible_files EXCEPTION (-20003, '教材のファイル8個、想定の行数、有効なラベルを確認できませんでした。別のブランチや以前のファイルへ切り替えず、作業を止めて講師に確認してください。');
   stale_predictions EXCEPTION (-20005, '既にある予測結果が、この教材データから作られたものか確認できません。作業を止めて講師に確認してください。予測結果を消して進めないでください。');
   lock_failed EXCEPTION (-20006, '取込の重複を防ぐ管理情報が想定と異なります。作業を止めて講師に確認してください。セットアップや取込を同時に実行しないでください。');
   definitions RESULTSET;
@@ -110,12 +110,11 @@ BEGIN
     RAISE incompatible_schema;
   END IF;
 
-  -- FETCHは必須です。取得後、固定コミットから8個すべてを内部ステージへコピーします。
-  -- commits/<固定コミットID>/data/はGitの仮想的なスナップショット参照で、実フォルダー名ではありません。
-  -- 固定コミットIDを変更したり、読取エラーを避けるためにbranches/mainへ置き換えたりしないでください。
+  -- GitHubのmainブランチを取得し、dataフォルダの8ファイルを内部ステージへコピーします。
+  -- 演習中は配布データを変更しないでください。再取込時は保存済みの件数・内容との一致も検査します。
   ALTER GIT REPOSITORY BCAST_PLATFORM_HANDSON.INTEGRATIONS.BCAST_PLATFORM_REPO FETCH;
   COPY FILES INTO @BCAST_PLATFORM_HANDSON.INTEGRATIONS.BCAST_PLATFORM_RAW_STAGE/F1_SIGNAL_V2/
-    FROM @BCAST_PLATFORM_HANDSON.INTEGRATIONS.BCAST_PLATFORM_REPO/commits/8a6f0cc234b30c3b54a4a63d68890bb7cb9f8887/data/
+    FROM @BCAST_PLATFORM_HANDSON.INTEGRATIONS.BCAST_PLATFORM_REPO/branches/main/data/
     FILES = ('viewing_log_nw01.parquet', 'viewing_log_nw02.parquet',
              'viewing_log_nw03.parquet', 'viewing_log_nw04.parquet',
              'viewing_log_nw05.parquet', 'program_master.parquet',
