@@ -1,28 +1,12 @@
 -- 目的: 局別の加工結果とCOMMONの共通集計が一致しているかを確認します。表の作成・更新は行いません。
 -- 前提: データ取込と、5局すべて・COMMONのdbtビルドおよびテストが完了していること。
 -- 実行方法: ハンズオン用アカウントで上から順に実行し、EXECUTE IMMEDIATEの各ブロックはまとめて実行します。
--- 確認順: データ版 → 日次全体1行 → 毎分全体1行 → COMMON照合 → 局別照合5行 → 局・日別集計 → ラベル対応1行。
+-- 確認順: 日次全体1行 → 毎分全体1行 → COMMON照合 → 局別照合5行 → 局・日別集計 → ラベル対応1行。
 -- 完了の目安: エラーがなく、全体の値と各差分が下記の条件を満たすこと。
 -- エラーが出た場合はMLやアプリへ進まず、各局とCOMMONのビルド・テスト結果を講師と確認してください。
 USE ROLE BCAST_PLATFORM_ENGINEER_ROLE;
 USE SECONDARY ROLES NONE;
 USE WAREHOUSE BCAST_PLATFORM_COMMON_WH;
-
--- 8ファイルすべてが教材のデータ版F1_SIGNAL_V2として記録されていることを確認します。
--- このブロックは検査だけで、成功時に明細表は返しません。エラーなしで終了したら次の集計へ進みます。
-EXECUTE IMMEDIATE $$
-DECLARE
-  invalid_release EXCEPTION (-20007, 'Expected complete F1_SIGNAL_V2 release metadata. Run setup/load before common validation.');
-  file_count INTEGER;
-  version_count INTEGER;
-BEGIN
-  SELECT COUNT(*), COUNT_IF(DATASET_VERSION = 'F1_SIGNAL_V2') INTO :file_count, :version_count
-  FROM BCAST_PLATFORM_HANDSON.RAW.DATASET_RELEASE_FILES;
-  IF (file_count != 8 OR version_count IS DISTINCT FROM 8) THEN
-    RAISE invalid_release;
-  END IF;
-END;
-$$;
 
 -- 共通の日次表の行数、重複を除いた端末数、視聴回数・時間、期間、ジャンル数を確認します。
 -- MART_ROWSは集計表の行数です。視聴回数はTOTAL_SESSIONSで確認してください。

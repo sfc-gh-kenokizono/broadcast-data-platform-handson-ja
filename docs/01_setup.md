@@ -15,7 +15,7 @@
 2. [GitHubで最初のSQLを開き](#1-最初のセットアップsqlを開く)、Snowsightに貼り付けます。GitHubリポジトリの新規作成は不要です。
 3. [SQL内の第1〜5節を実行](#2-専用環境とgit接続を作る)します。第5節がSnowflakeのGit Repositoryを作成します。
 4. 第5節の `LIST` が成功し、8個のParquetが見えたら、[Git Workspaceを作ります](#受講用git-workspaceを作る)。
-5. Workspaceで [sql/01_02_load_parquet.sql](../sql/01_02_load_parquet.sql)を開き、[検査・取込](#3-parquetをrawテーブルへ読み込む)と[結果確認](#動作確認)を行います。
+5. Workspaceで [sql/01_02_load_parquet.sql](../sql/01_02_load_parquet.sql)を開き、[ファイル準備・取込](#3-parquetをrawテーブルへ読み込む)と[件数確認](#動作確認)を行います。
 
 ## まず、登場するものを整理する
 
@@ -34,11 +34,11 @@
 この章では、次の順でデータを移します。
 
 ```text
-GitHubのParquetファイル
-       ↓ COPY FILES：ファイルをコピー
-Snowflakeの内部ステージ
-       ↓ COPY INTO：中身を行と列へ読み込む
-各局のRAWテーブル
+GitHubのmain → FETCH：Snowflake側のGitコピーを更新
+       ↓ COPY FILES：指定した8ファイルを初回だけコピー
+内部ステージの /F1_SIGNAL_V2/ → LIST：8ファイルを確認
+       ↓ COPY INTO：1ファイルずつ、8本のSQLで読み込む
+RAWの8テーブル → COUNT(*)：各表の行数を確認
 ```
 
 ### Gitの接続とWorkspaceはどう違う？
@@ -94,7 +94,7 @@ Snowflakeの内部ステージ
 | 1. 専用環境の準備 | 2ロール、教材DB、10スキーマ、6WH | 教材DBと局別・共通WHが作られる |
 | 2. 権限 | エンジニア用の作成権限、アナリスト用の参照権限 | 権限付与のSQLにエラーがない |
 | 3. Git API統合 | 教材のGitHub URLへ接続する許可 | `BCAST_PLATFORM_GIT_API` が作られる |
-| 4. RAWとステージ | 空のテーブル、内部ステージ、Parquetの読込設定 | この時点ではテーブルは空でよい |
+| 4. RAWとステージ | 空のRAWテーブル8個、内部ステージ、Parquetの読込設定 | この時点ではテーブルは空でよい |
 | 5. 公開リポジトリ接続 | SnowflakeのGit Repositoryを作り、`FETCH` で配布元を取得 | 最後の `LIST` で `main` の `data/` に8個のParquetが見える |
 
 `LIST` はファイルの一覧を表示するだけです。8個が見えても、まだテーブルへデータを読み込んだことにはなりません。取込は、この章の第3節で行います。
@@ -159,54 +159,70 @@ Workspace名を別の名前にした場合は、第2章のSQL内のWorkspace名�
 ## 3. ParquetをRAWテーブルへ読み込む
 
 Workspaceで [sql/01_02_load_parquet.sql](../sql/01_02_load_parquet.sql) を開きます。
-**冒頭の接続設定、検査・取込ブロック、末尾の確認SQLに分けて実行します。**
+**接続設定 → 初回のファイル準備 → 8本の `COPY INTO` → 件数確認の順に、1文ずつ実行します。**
 
-### ① 接続先と実行単位を確認する
+### ① 接続先を確認する
 
 冒頭の `USE ...` を実行し、演習用DB・エンジニアロール・共通WHを使います。
-次の `EXECUTE IMMEDIATE $$` から対応する最後の `$$;` までが、ひとまとまりの検査・取込ブロックです。
-**中の `COPY FILES` や `COPY INTO` だけを抜き出して実行しないでください。**
 
-### ② 検査・取込ブロックを実行する
+### ② 初回だけファイルを準備する
 
-ブロックは列定義を確認し、`FETCH` で公開済みの教材を取得します。
-データは `/branches/main/data/` から読みます。これは公開リポジトリの `main` ブランチにある `data` フォルダです。
+`FETCH` でSnowflake側のGitコピーを更新し、`COPY FILES` を実行します。取込元の `/branches/main/data/` は、公開リポジトリの `main` ブランチにある `data` フォルダです。
+`FILES` に指定された次の8ファイルだけを、内部ステージ `BCAST_PLATFORM_RAW_STAGE` の `/F1_SIGNAL_V2/` へコピーします。
 
-そこから視聴記録5個、番組マスタ、放送予定、ラベルを、内部ステージの `/F1_SIGNAL_V2/` へコピーします。`F1_SIGNAL_V2` はデータ版とコピー先のフォルダ名です。
-セットアップSQLの `LIST` も同じ `/branches/main/data/` を参照します。取得できない場合は停止し、別の取込元や以前のステージファイルで続行せず講師へ確認してください。
-ファイル名は `viewing_log_nw01.parquet`〜`viewing_log_nw05.parquet`、`program_master.parquet`、`program_schedule.parquet`、`device_labels.parquet` です。
+| ファイル | 読み込むRAWテーブル |
+|---|---|
+| `viewing_log_nw01.parquet` | `VIEWING_LOG_NW01` |
+| `viewing_log_nw02.parquet` | `VIEWING_LOG_NW02` |
+| `viewing_log_nw03.parquet` | `VIEWING_LOG_NW03` |
+| `viewing_log_nw04.parquet` | `VIEWING_LOG_NW04` |
+| `viewing_log_nw05.parquet` | `VIEWING_LOG_NW05` |
+| `program_master.parquet` | `PROGRAM_MASTER` |
+| `program_schedule.parquet` | `PROGRAM_SCHEDULE` |
+| `device_labels.parquet` | `DEVICE_LABELS` |
 
-> `main` は更新可能です。**ドライラン中は配布元のデータを変更しません。** 既に保存した内容と異なるデータは、同じ `F1_SIGNAL_V2` という版名でもロードが拒否します。記録や既存データを消して回避しないでください。
+続く内部ステージの `LIST` で、この8ファイルを確認します。セットアップ時のGit側の一覧とは、確認先が異なります。
+`COPY FILES` のコピー結果にも8ファイルがあることを確認してください。存在しないファイルがスキップされる場合があるため、以前のファイルがステージに見えるだけでは、今回の準備成功とは判断しません。
 
-8ファイルを一時テーブルへ読み、検査が終わるまでそこに保持します。コピー結果が8件であること、列定義・ラベル20,000台・正解あり2,000台を検査します。
-`COPY FILES` は存在しないファイルをスキップする場合があるため、ステージに古いファイルが見えるだけでは成功としません。
-エラーが出たら、後続の確認やdbtへ進まず講師へ伝えます。
+`F1_SIGNAL_V2` は今回のデータ版とコピー先フォルダの名前です。**演習中は配布元・ステージのファイルを変更しません。** 取得失敗やファイル不足なら、別の取込元へ切り替えず講師へ確認します。再実行時には、この準備を繰り返さず[再実行手順](#もう一度実行するとき)へ進みます。
 
-### ③ 取込結果を確認する
+### ③ 8本のCOPY INTOで読み込む
 
-同じブロックの後半で、既存データと予測が今回の版と矛盾しないか確認します。合格した一時データから8表と版の記録を、1つのトランザクションで置き換えます。途中までだけ新しくならないようにするためです。
-確定前に失敗した場合は8表と版の記録への変更をロールバックします。ファイルコピーや環境作成までは取り消しません。ほかの人と同時にロード・加工・予測保存しないでください。
-日時はParquetの論理型を解釈し、開始・終了を `TIMESTAMP_NTZ` へ変換しています。
-ブロック完了後は、末尾の版記録を表示するSQLで取込内容を確認します。`TABLE_NAME` が対象表、`ROW_COUNT` が取り込んだ行数です。
+最初の1文は、NW01のファイルをNW01のRAWテーブルへ読み込みます。
+
+```sql
+COPY INTO BCAST_PLATFORM_HANDSON.RAW.VIEWING_LOG_NW01
+FROM @BCAST_PLATFORM_HANDSON.INTEGRATIONS.BCAST_PLATFORM_RAW_STAGE/F1_SIGNAL_V2/
+FILES = ('viewing_log_nw01.parquet')
+FILE_FORMAT = (FORMAT_NAME = 'BCAST_PLATFORM_HANDSON.INTEGRATIONS.BCAST_PLATFORM_PARQUET')
+MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE
+ON_ERROR = ABORT_STATEMENT;
+```
+
+`FILES` は読むファイル、`MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE` は大文字・小文字を区別せず列名で対応付ける指定です。列の並び順に合わせて読み替える必要はありません。
+`ON_ERROR = ABORT_STATEMENT` は、読込エラーがあれば**その1文の取込を中止**します。8文全体を一括で成功・取消する指定ではなく、先に成功した別の `COPY INTO` の結果は残ります。
+
+SQLファイルには、上表の8組それぞれの `COPY INTO` が明示されています。NW01の初回結果で `STATUS` が `LOADED`、`ROWS_LOADED` が195,938であることを確認し、残り7文も1文ずつ実行します。エラーが出たら後続を止め、[再実行手順](#もう一度実行するとき)を確認してください。
+日時はParquetの論理型と、セットアップで作った `TIMESTAMP_NTZ` 列を使って読み込みます。8文が成功したら、次の件数確認へ進みます。
 
 ## 動作確認
 
-ロードSQL末尾のSELECTを実行します。`DATASET_RELEASE_FILES` に `F1_SIGNAL_V2` の8件があり、各 `TABLE_NAME` の `ROW_COUNT` が次の値であることを確認します。
+ロードSQL末尾のSELECTを実行すると、RAWの8表を直接数えた結果が8行表示されます。`TABLE_NAME`が表名、`ROW_COUNT`が実際の行数、`EXPECTED_ROWS`が期待する行数です。各行の2つの件数が一致することを確認してください。
 
-| 確認するもの | 期待値 |
+| `TABLE_NAME` | `ROW_COUNT` の期待値 |
 |---|---|
 | `VIEWING_LOG_NW01` | 195,938行 |
 | `VIEWING_LOG_NW02` | 184,465行 |
 | `VIEWING_LOG_NW03` | 179,991行 |
 | `VIEWING_LOG_NW04` | 234,324行 |
 | `VIEWING_LOG_NW05` | 255,930行 |
-| 5局のRAW合計 | 1,050,648行 |
-| `PROGRAM_MASTER` / `PROGRAM_SCHEDULE` | 60行 / 8,747行 |
+| `PROGRAM_MASTER` | 60行 |
+| `PROGRAM_SCHEDULE` | 8,747行 |
 | `DEVICE_LABELS` | 20,000行 |
 
-ラベルの一意な20,000台・既知2,000台・未知分のNULLは取込ブロック内で検査します。末尾SELECTにラベル内訳の列が出るわけではありません。配布ラベルの内訳は在籍なし1,656台・在籍あり344台で、第3章のラベル確認でも読みます。
+5局のRAW合計は1,050,648行です。件数の一致だけで、データ内容が完全に同じとは判断できません。ラベルの内訳・ID・NULLは第3章で確認します。正解あり2,000台の内訳は在籍なし1,656台・在籍あり344台です。
 
-ブロックの成功と、自分の実行結果が上表に一致することを確認してください。
+8本の `COPY INTO` の成功と、自分の件数結果が上表に一致することを確認してください。
 この結果になれば、第2章へ渡すデータの準備は完了です。
 **ジャンルに空白や小文字が残っていても、この時点では正常です。** 次章で整えます。
 
@@ -253,11 +269,24 @@ Notebookの接続画面で選べない場合は、第3章を始める前に講�
 
 ## もう一度実行するとき
 
-同じ版・同じ内容の再実行は、8表を同じ内容へまとめて置き換えます。行を追加しないため、ロード履歴によるスキップに頼りません。版の記録の取込日時は更新されます。
-SQL内の `FORCE = TRUE` は毎回空の一時テーブルへ読み込むための設定です。RAWへ直接COPYする手順に変えないでください。
-再実行後も局別件数・ラベル20,000行・版の記録8件を確認します。内容不一致で停止したら、記録や行を消して回避せず講師へ相談します。
+Snowflakeはテーブルごとに、ファイルのロード履歴を内部で保持します。**同じ変更されていないファイルを同じテーブルへ `COPY INTO` すると、ロード済みと判定できる間はスキップされ、行は追加されません。** 表の内容を毎回置き換える処理ではありません。
 
-Notebook開始後に再ロードした場合は、カーネルを再起動して先頭から実行してください。古い変数を使い続けないためです。登録済みモデル版があれば、第3章に従い未使用の `V3` などを選びます。
+### 同じCOPYをもう一度試す
+
+1. 同じ演習中で、ステージのファイルとRAWテーブルを変更していないことを確認します。
+2. 接続設定を確認し、**`COPY INTO` だけ**を再実行します。`FETCH`・`COPY FILES` に戻りません。
+3. 再取込の対象がない旨の結果と、8表の件数が増えていないことを確認します。
+
+`COPY FILES` は初回の準備です。ファイルを再配置すると更新日時などのメタデータが変わり得るため、同じ `COPY INTO` の再実行を試す際には繰り返しません。
+
+重複ロード防止に使う内部メタデータには**64日の有効期限**があります。古いファイルではロード状態を判定できず、既定でスキップされる場合もあります。永久的な重複防止や、データ版・全行の内容一致を保証する仕組みではありません。長期間経過後やデータ変更後は、この再実行手順を使わず講師へ確認します。
+
+### 途中で失敗した場合
+
+先に成功した `COPY INTO` のデータは残ります。エラー文とクエリ履歴を確認し、ファイル・RAWを変更しない同じ演習中に原因を解消できた場合は、**失敗した1文だけ**を再実行します。成功を確認してから未実行の文へ進み、最後に8表の件数を確認します。
+ファイルの修正・再配置が必要な場合や件数が合わない場合は、そのまま進めず講師へ相談します。再試行のために `FORCE = TRUE` を追加したり、`TRUNCATE`・`DELETE` で既存行を消したりしません。ほかの人と同時にロードやデータ変更をしないでください。
+
+Notebook開始後に入力データが変わった場合は、学習・保存を続けず講師へ確認します。第2章のマートを更新・確認した後、Notebookのカーネルを再起動して先頭から実行します。登録済みモデル版があれば、第3章に従い未使用の `V3` などを選びます。
 
 ## 補足：Parquetの読込設定
 
@@ -274,7 +303,7 @@ Notebook開始後に再ロードした場合は、カーネルを再起動して
 読込設定に `COMPRESSION = ZSTD` と書き換える必要もありません。
 
 入力日時はマイクロ秒単位の `timestamp[us]` です。
-ロードSQLでは列と順番、変換先の型を明示しています。
+ロードSQLでは `MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE` で列名を対応付け、セットアップで定義した型の列へ読み込みます。
 変換失敗をNULLへ隠す処理や、エラー行を読み飛ばす設定へは変更しないでください。
 
 ## 後片付け
@@ -306,4 +335,5 @@ DB内のモデル、予測、公開済みStreamlit、Agentも削除対象です�
 
 - [CREATE FILE FORMAT：Parquetの設定](https://docs.snowflake.com/en/sql-reference/sql/create-file-format#type--parquet)
 - [COPY FILES：ファイルのコピー](https://docs.snowflake.com/en/sql-reference/sql/copy-files)
-- [ロード時の型変換](https://docs.snowflake.com/en/user-guide/data-load-transform)
+- [COPY INTO：列名の対応付けとON_ERROR](https://docs.snowflake.com/en/sql-reference/sql/copy-into-table#copy-options-copyoptions)
+- [ロード履歴による重複防止と64日の有効期限](https://docs.snowflake.com/en/user-guide/data-load-considerations-load#load-metadata)

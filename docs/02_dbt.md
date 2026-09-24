@@ -380,13 +380,12 @@ EXECUTE DBT PROJECT FROM WORKSPACE USER$.PUBLIC."broadcast-data-platform-handson
 
 | 順番 | 確認 | 出力と確認すること |
 |---|---|---|
-| 1 | データ版 | 明細表は返しません。8ファイルが `F1_SIGNAL_V2` で、エラーなく終了すること |
-| 2 | 日次表全体 | 1行。行数・リーチ・回数・時間・期間・ジャンル数を下表と比較 |
-| 3 | 毎分表全体 | 1行。`MINUTE_MART_ROWS` と `DEVICE_MINUTE_BUCKETS` を下表と比較 |
-| 4 | COMMONと5局合計の照合 | 明細表は返しません。日次・毎分の照合がエラーなく終了すること |
-| 5 | 局別のRAWから集計までの照合 | NW01〜NW05の5行。`ACTUAL_METRICS` の件数差は0、分数差は下記の許容誤差内 |
-| 6 | 局・日別の分単位集計 | 正常時も複数行。観測分数・最初と最後の分・ピーク台数・端末分数を確認。観測分数は必ずしも1,440ではありません |
-| 7 | ラベル表と観測端末の対応 | 1行。`LABEL_DEVICES_WITHOUT_OBSERVATIONS` と `OBSERVED_DEVICES_WITHOUT_LABEL_ROW` が両方0であること |
+| 1 | 日次表全体 | 1行。行数・リーチ・回数・時間・期間・ジャンル数を下表と比較 |
+| 2 | 毎分表全体 | 1行。`MINUTE_MART_ROWS` と `DEVICE_MINUTE_BUCKETS` を下表と比較 |
+| 3 | COMMONと5局合計の照合 | 明細表は返しません。日次・毎分の照合がエラーなく終了すること |
+| 4 | 局別のRAWから集計までの照合 | NW01〜NW05の5行。`ACTUAL_METRICS` の件数差は0、分数差は下記の許容誤差内 |
+| 5 | 局・日別の分単位集計 | 正常時も複数行。観測分数・最初と最後の分・ピーク台数・端末分数を確認。観測分数は必ずしも1,440ではありません |
+| 6 | ラベル表と観測端末の対応 | 1行。`LABEL_DEVICES_WITHOUT_OBSERVATIONS` と `OBSERVED_DEVICES_WITHOUT_LABEL_ROW` が両方0であること |
 
 日次表全体・毎分表全体の期待値は次のとおりです。
 

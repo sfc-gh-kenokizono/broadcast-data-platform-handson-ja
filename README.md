@@ -22,7 +22,7 @@ GitHubの教材は用意済みです。**自分でGitHubリポジトリを作る
 | 1 | [実行前の確認](docs/01_setup.md#実行前の確認)を読む | 演習用アカウントと管理者の案内を確認 |
 | 2 | [sql/01_01_setup.sql](https://github.com/sfc-gh-kenokizono/broadcast-data-platform-handson-ja/blob/main/sql/01_01_setup.sql)をSnowsightへ貼り付け、第1〜5節を実行 | 第5節の `LIST` が成功し、8個のParquetが見える |
 | 3 | [Git Workspaceを作る](docs/01_setup.md#受講用git-workspaceを作る) | `main` の教材ファイルが開ける |
-| 4 | Workspaceで [sql/01_02_load_parquet.sql](sql/01_02_load_parquet.sql)を開き、第1章に沿って実行 | 検査・取込ブロックが成功し、末尾SELECTの版記録8件・件数が一致 |
+| 4 | Workspaceで [sql/01_02_load_parquet.sql](sql/01_02_load_parquet.sql)を開き、第1章に沿って実行 | 初回のファイル準備と8本の `COPY INTO` が成功し、末尾SELECTの8表の件数が一致 |
 
 | Gitに関係するもの | いつ用意する？ | 用途 |
 |---|---|---|
@@ -30,9 +30,9 @@ GitHubの教材は用意済みです。**自分でGitHubリポジトリを作る
 | SnowflakeのGit Repository `BCAST_PLATFORM_REPO` | `sql/01_01_setup.sql` 第5節が作成 | SQLからデータを読み込むための接続先 |
 | 自分用のGit Workspace | 第5節の `LIST` 成功後、Snowsightで作成 | SQL・dbt・Notebook・アプリのファイルを開く作業場所 |
 
-取込元は `main` の `/branches/main/data/`、データ版は引き続き `F1_SIGNAL_V2` です。`main` は更新可能なので、**ドライラン中は配布元のデータを変更しません。** 取得できない場合は停止し、講師へ確認します。
+取込元は `main` の `/branches/main/data/`、データ版は `F1_SIGNAL_V2` です。初回に `FETCH` → `COPY FILES` → 内部ステージの `LIST` で8ファイルを準備し、8本の `COPY INTO` でRAWへ読み込みます。**演習中は配布元・ステージのファイルを変更しません。** 取得できない場合は停止し、講師へ確認します。
 
-新しいアカウントでは移行作業は不要です。既存データと内容が異なる場合、ロードは停止します。既存データや版の記録を削除して回避せず、講師へ確認してください。
+同じ変更されていないファイルを同じ表へ再度 `COPY INTO` すると、Snowflakeがロード済みと判定できる間はスキップされます。再実行では `COPY FILES` を繰り返さず、[第1章の再実行手順](docs/01_setup.md#もう一度実行するとき)に従います。既存環境がある場合も、データを削除せず講師へ確認してください。
 
 ## この教材の流れ
 
