@@ -16,11 +16,11 @@ EXECUTE IMMEDIATE $$
 DECLARE
   -- 既存データの保護のため、表の構造・データの版・ファイル・予測結果・同時実行を確認します。
   -- エラーは確認を省略して進める合図ではありません。内容を講師に伝え、原因を確認してください。
-  incompatible_schema EXCEPTION (-20001, 'RAW schema mismatch. Stop; use approved backup-first migration, not a database reset.');
-  incompatible_data EXCEPTION (-20002, 'Existing RAW data is unversioned, changed, or a different release. No overwrite authorized. Ask the maintainer to perform an approved backup-first migration, then rerun setup/load.');
-  incompatible_files EXCEPTION (-20003, 'F1_SIGNAL_V2 requires all eight commit-pinned files, exact row counts, consistent per-load file keys and valid F1 labels. Do not fall back to main or old stage files.');
-  stale_predictions EXCEPTION (-20005, 'Existing ML.PREDICTIONS lacks F1_SIGNAL_V2 provenance. Stop; approved backup-first migration must invalidate predictions before loading.');
-  lock_failed EXCEPTION (-20006, 'Expected exactly one dataset load lock. Stop and repair setup; do not run concurrent setup/migration.');
+  incompatible_schema EXCEPTION (-20001, '取込先テーブルの列名または型が教材と一致しません。ここで作業を止め、既存データを削除・上書きせずに講師へ確認してください。');
+  incompatible_data EXCEPTION (-20002, '既にあるデータが、この教材の版と一致しません。上書きは行いません。作業を止めて講師に連絡し、管理者が承認したバックアップ付きの手順を実施してから、01_setup.sqlと02_load_parquet.sqlをやり直してください。');
+  incompatible_files EXCEPTION (-20003, '固定した版のファイル8個、想定の行数、有効なラベルを確認できませんでした。mainブランチや以前のファイルへ切り替えず、作業を止めて講師に確認してください。');
+  stale_predictions EXCEPTION (-20005, '既にある予測結果が、この教材データから作られたものか確認できません。作業を止めて講師に確認してください。予測結果を消して進めないでください。');
+  lock_failed EXCEPTION (-20006, '取込の重複を防ぐ管理情報が想定と異なります。作業を止めて講師に確認してください。セットアップや取込を同時に実行しないでください。');
   definitions RESULTSET;
   definitions_table VARCHAR;
   pass_count INTEGER;
