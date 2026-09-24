@@ -16,6 +16,8 @@ SELECT CURRENT_ACCOUNT() AS ACCOUNT_NAME,
 
 -- リーチはジャンルごとに重複を除いた端末数です。ジャンル別の値を足して全体リーチにはできません。
 -- 視聴回数はSESSION_COUNT、視聴時間はVIEW_MINUTES（分）の合計で確認します。
+-- 例えば同じ端末がNEWSとSPORTSを見れば両方のリーチに1ずつ入ります。人数・世帯数やF1層の人数を数えているわけではありません。
+-- 結果は期間内のジャンル別集計です。本編のデータがそろっていれば8ジャンルを確認でき、次は区間のまとめ方を小さな例で学びます。
 SELECT GENRE,
        COUNT(DISTINCT DEVICE_ID) AS DISTINCT_REACH,
        SUM(SESSION_COUNT) AS TOTAL_SESSIONS,
@@ -39,12 +41,14 @@ WITH fixture (EVENT_ID, DEVICE_ID, NETWORK_ID, GENRE, FROM_TEXT, TO_TEXT) AS (
         (6, 'C000001', 'NW01', 'NEWS', '2026-07-01 09:10:00', '2026-07-01 09:20:00'),
         (7, 'C000001', 'NW01', 'NEWS', '2026-07-01 10:00:00', '2026-07-01 10:05:00')
 ), typed_intervals AS (
+    -- 文字列の時刻を日時型へ変換し、大小比較やMIN/MAXで視聴区間を扱えるようにします。
     SELECT EVENT_ID, DEVICE_ID, NETWORK_ID, GENRE,
            FROM_TEXT::TIMESTAMP_NTZ AS VIEW_FROM,
            TO_TEXT::TIMESTAMP_NTZ AS VIEW_TO
     FROM fixture
 ), preceding_bounds AS (
-    -- 直前の1行だけでなく、それまでの終了時刻の最大値を使い、内包された区間も正しく扱います。
+    -- 08:25開始の直前行は08:10終了ですが、その前の区間は08:30まで続いています。直前行だけだと誤って分断します。
+    -- 自分より前の全行の終了時刻の最大値を使うと、短い区間が長い区間に内包される場合もつながりを判定できます。
     SELECT *,
            MAX(VIEW_TO) OVER (
                PARTITION BY DEVICE_ID, NETWORK_ID, GENRE
@@ -53,12 +57,13 @@ WITH fixture (EVENT_ID, DEVICE_ID, NETWORK_ID, GENRE, FROM_TEXT, TO_TEXT) AS (
            ) AS PREVIOUS_MAX_TO
     FROM typed_intervals
 ), boundaries AS (
-    -- 次の開始時刻がそれまでの終了時刻を超えた場合だけ、新しい区間の始まりにします。
+    -- 最初の行、または既存区間と隙間がある行だけNEW_GROUP=1にします。終了と開始が同時刻なら同じ区間に含めます。
     SELECT *,
            CASE WHEN PREVIOUS_MAX_TO IS NULL OR VIEW_FROM > PREVIOUS_MAX_TO
                 THEN 1 ELSE 0 END AS NEW_GROUP
     FROM preceding_bounds
 ), numbered AS (
+    -- NEW_GROUPの累積和をグループ番号にします。隙間に出会うたび1増えるので、連続する行を同じ番号で集計できます。
     SELECT *,
            SUM(NEW_GROUP) OVER (
                PARTITION BY DEVICE_ID, NETWORK_ID, GENRE
@@ -67,7 +72,7 @@ WITH fixture (EVENT_ID, DEVICE_ID, NETWORK_ID, GENRE, FROM_TEXT, TO_TEXT) AS (
            ) AS INTERVAL_GROUP
     FROM boundaries
 ), folded AS (
-    -- 同じグループの開始・終了をまとめ、SOURCE_ROWSに元の行数を残します。
+    -- 同じ番号の最も早い開始と最も遅い終了で1区間にまとめます。SOURCE_ROWSはその区間にまとめた入力行数です。
     SELECT DEVICE_ID, NETWORK_ID, GENRE,
            MIN(VIEW_FROM) AS VIEW_FROM,
            MAX(VIEW_TO) AS VIEW_TO,
@@ -75,6 +80,8 @@ WITH fixture (EVENT_ID, DEVICE_ID, NETWORK_ID, GENRE, FROM_TEXT, TO_TEXT) AS (
     FROM numbered
     GROUP BY DEVICE_ID, NETWORK_ID, GENRE, INTERVAL_GROUP
 )
+-- 結果3行のSOURCE_ROWSは4・2・1、各行のINPUT_ROWSは7、FOLDED_ROWSは3なら期待どおりです。
+-- 重なりをまとめると区間数や時間の意味が変わります。この例を本編のdbtに追加する操作ではありません。
 SELECT DEVICE_ID, NETWORK_ID, GENRE, VIEW_FROM, VIEW_TO, SOURCE_ROWS,
        SUM(SOURCE_ROWS) OVER () AS INPUT_ROWS,
        COUNT(*) OVER () AS FOLDED_ROWS

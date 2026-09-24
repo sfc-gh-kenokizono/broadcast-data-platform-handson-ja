@@ -12,6 +12,9 @@ USE DATABASE BCAST_PLATFORM_HANDSON;
 USE SCHEMA BCAST_PLATFORM_HANDSON.RAW;
 USE WAREHOUSE BCAST_PLATFORM_COMMON_WH;
 
+-- 読み方: definitionsは8ファイルの対応表、一時表は検査用の仮置き、RAWの本体表は後続のdbtが読む取込結果です。
+-- 流れは「対応表を用意 → 一時表で全件検査 → 既存データと照合 → 本体へ反映・確定」。途中では反映しません。
+-- FORは同じ検査や書込を8表へ漏れなく適用する繰り返しです。ブロック全体の成功後に末尾のSELECTを確認します。
 EXECUTE IMMEDIATE $$
 DECLARE
   -- 既存データの保護のため、表の構造・データの版・ファイル・予測結果・同時実行を確認します。
@@ -43,8 +46,9 @@ DECLARE
   manifest_table VARCHAR;
   load_time TIMESTAMP_NTZ DEFAULT SYSDATE();
 BEGIN
-  -- 実行ごとに異なる名前の一時テーブルを使い、確認が終わるまで既存のRAWデータに触れません。
-  -- 下の一覧は、取り込む8ファイルの名前・期待件数・列の対応です。
+  -- 1. 取込の対応表: 1行で「どのファイルを、どの表へ、何行、どの列・型で読むか」を指定します。
+  -- COLUMNS_SQLは書込先の列、PROJECTION_SQLはParquetの各項目をその型へ変換する式です。
+  -- load_idを付けた一時表名で別実行と区別します。この段階は検査の準備だけで、RAW本体は変更しません。
   snapshots_prefix := 'BCAST_PLATFORM_HANDSON.RAW.LOAD_' || load_id || '_';
   manifest_table := snapshots_prefix || 'MANIFEST';
   definitions_table := snapshots_prefix || 'DEFINITIONS';
@@ -75,7 +79,8 @@ BEGIN
       ('PROGRAM_SCHEDULE', 'program_schedule.parquet', 8747,
        'PROGRAM_ID, NETWORK_ID, AIR_DATE, AIR_FROM, AIR_TO',
        '$1:PROGRAM_ID::VARCHAR, $1:NETWORK_ID::VARCHAR, $1:AIR_DATE::DATE, $1:AIR_FROM::TIMESTAMP_NTZ, $1:AIR_TO::TIMESTAMP_NTZ');
-  -- 取込先の列名と型が教材の定義どおりかを確認します。異なる場合はロード前に停止します。
+  -- 2. 受け皿の検査: expectedは教材が必要とする列、actualは01で作った実際の列です。
+  -- FULL OUTER JOINで不足列と余分な列の両方を探し、型の相違も数えます。相違0ならファイル取得へ進みます。
   WITH expected AS (
     SELECT 'VIEWING_LOG_' || station.COLUMN1 AS TABLE_NAME,
            definition.COLUMN1 AS COLUMN_NAME, definition.COLUMN2 AS DATA_TYPE
@@ -110,8 +115,9 @@ BEGIN
     RAISE incompatible_schema;
   END IF;
 
-  -- GitHubのmainブランチを取得し、dataフォルダの8ファイルを内部ステージへコピーします。
-  -- 演習中は配布データを変更しないでください。再取込時は保存済みの件数・内容との一致も検査します。
+  -- 3. ファイルの準備: FETCHしたmainの配布ファイルを内部ステージへコピーします。Workspaceの編集中ファイルは対象外です。
+  -- COPY FILESはファイルの移動先へのコピーであり、まだ表へのロードではありません。コピー結果8件を確認して次へ進みます。
+  -- 演習中は配布データを変更しません。再実行時は後段で前回の行数・内容との一致も確認します。
   ALTER GIT REPOSITORY BCAST_PLATFORM_HANDSON.INTEGRATIONS.BCAST_PLATFORM_REPO FETCH;
   COPY FILES INTO @BCAST_PLATFORM_HANDSON.INTEGRATIONS.BCAST_PLATFORM_RAW_STAGE/F1_SIGNAL_V2/
     FROM @BCAST_PLATFORM_HANDSON.INTEGRATIONS.BCAST_PLATFORM_REPO/branches/main/data/
@@ -124,8 +130,8 @@ BEGIN
   IF (file_count != 8) THEN
     RAISE incompatible_files;
   END IF;
-  -- 各ファイルを一時テーブルへ読み、列・件数・ファイル内容の識別値を照合します。
-  -- 検証結果は一時的な管理表にまとめ、全ファイルがそろったことを後で確認します。
+  -- 4. 一時表での検査: 最初の8回ループで、対応表どおりに各ファイルを読み、列と想定行数を検査します。
+  -- manifestは各ファイルの検査記録です。1個でも不一致なら停止するため、正常なファイルだけがRAW本体へ入ることはありません。
   CREATE TEMPORARY TABLE IDENTIFIER(:manifest_table)
     LIKE BCAST_PLATFORM_HANDSON.RAW.DATASET_RELEASE_FILES;
   pass_count := 0;
@@ -143,6 +149,8 @@ BEGIN
     IF (schema_mismatches > 0) THEN
       RAISE incompatible_files;
     END IF;
+    -- LIKEで本体と同じ列構造の空の一時表を作り、取込元ファイルを識別する列を検査用に追加します。
+    -- FORCE=TRUEで毎回読み直す対象はこの一時表です。既存RAWを無条件で上書きする指定ではありません。
     CREATE TEMPORARY TABLE IDENTIFIER(:snapshot_table) LIKE IDENTIFIER(:raw_table);
     ALTER TABLE IDENTIFIER(:snapshot_table) ADD COLUMN _FILE_CONTENT_KEY VARCHAR;
     statement := 'COPY INTO ' || snapshot_table || ' (' || definition.COLUMNS_SQL || ', _FILE_CONTENT_KEY) '
@@ -162,6 +170,8 @@ BEGIN
                                  'VIEWING_LOG_NW04', 'VIEWING_LOG_NW05')) THEN
       viewing_rows := viewing_rows + existing_rows;
     END IF;
+    -- FILE_CONTENT_KEYは読んだファイルの識別値、HASH_AGGは読み取った行の内容を比較するための照合値です。
+    -- 件数だけでは同じ件数の別データを区別できないため、内容の照合値も後段の再実行チェックに使います。
     statement := 'INSERT INTO ' || manifest_table
       || ' SELECT ''F1_SIGNAL_V2'', ''' || definition.TABLE_NAME || ''', ''' || definition.FILE_NAME
       || ''', MIN(_FILE_CONTENT_KEY), COUNT(*), HASH_AGG(' || definition.COLUMNS_SQL || '), ? FROM ' || snapshot_table;
@@ -176,7 +186,8 @@ BEGIN
   IF (viewing_rows != 1050648) THEN
     RAISE incompatible_files;
   END IF;
-  -- 端末20,000台のうち、正解ラベルを使える2,000台だけに0/1が入り、残りはNULLであることを確認します。
+  -- ラベルの検査: 20,000端末が重複なくそろい、正解を使える2,000端末にだけ0/1があることを確認します。
+  -- 残りのTARGET_F1は「世帯にF1層がいない=0」ではなく「不明=NULL」です。不正行0なら局別ログの検査へ進みます。
   snapshot_table := snapshots_prefix || 'DEVICE_LABELS';
   SELECT COUNT(DISTINCT DEVICE_ID), COUNT_IF(LABEL_AVAILABLE), COUNT_IF(
       DEVICE_ID IS NULL OR NOT REGEXP_LIKE(DEVICE_ID, 'C[0-9]{6}')
@@ -188,7 +199,8 @@ BEGIN
   IF (unique_devices != 20000 OR panel_rows != 2000 OR invalid_rows > 0) THEN
     RAISE incompatible_files;
   END IF;
-  -- 局別ログの端末ID・局コード・視聴開始日時が教材の範囲内であることを確認します。
+  -- ここだけは5局のループです。各ログの端末ID・局コード・開始日時を検査し、別局や別期間のデータ混入を防ぎます。
+  -- 全5局の不正行が0なら次へ進みます。視聴区間の整形や重複除去はここでは行わず、後続のdbtで扱います。
   FOR station IN 1 TO 5 DO
     snapshot_table := snapshots_prefix || 'VIEWING_LOG_NW0' || station;
     SELECT COUNT(*) INTO :invalid_rows FROM IDENTIFIER(:snapshot_table)
@@ -202,15 +214,17 @@ BEGIN
     END IF;
   END FOR;
 
-  -- ここからは複数表への変更をまとめて確定するトランザクションです。
-  -- 管理用の1行を更新して取込同士の競合を防ぎます。セットアップや移行を並行して実行しないでください。
+  -- 5. 既存データの保護と反映: トランザクションは8表と管理記録の変更をまとめて確定・取消する単位です。
+  -- まずロック用の1行を更新して他の取込との書込競合を防ぎます。管理表は教材の分析対象ではなく、手で直しません。
+  -- この仕組みがあっても、セットアップや移行を並行して実行してよいわけではありません。
   BEGIN
     BEGIN TRANSACTION;
     UPDATE BCAST_PLATFORM_HANDSON.RAW.DATASET_LOAD_LOCK SET LAST_LOADER = :load_id WHERE LOCK_ID = 1;
     IF (SQLROWCOUNT != 1) THEN
       RAISE lock_failed;
     END IF;
-    -- 再ロード前に、記録済みの版・ファイル名・件数・内容の照合値が今回のデータと一致するか調べます。
+    -- 前回の取込記録がなければ初回候補、8件あれば再実行候補です。中途半端な記録や異なる版・内容なら停止します。
+    -- ここで比較するのは記録同士です。次のループではRAW本体も調べ、記録だけが正しい状態を見逃さないようにします。
     SELECT COUNT(*) INTO :metadata_count FROM BCAST_PLATFORM_HANDSON.RAW.DATASET_RELEASE_FILES;
     SELECT COUNT(*) INTO :invalid_rows
     FROM BCAST_PLATFORM_HANDSON.RAW.DATASET_RELEASE_FILES AS old
@@ -222,8 +236,8 @@ BEGIN
     IF (metadata_count != 0 AND (metadata_count != 8 OR invalid_rows > 0)) THEN
       RAISE incompatible_data;
     END IF;
-    -- 管理記録のない既存データや、ロード後に変更されたRAWデータは上書きせず停止します。
-    -- 再ロード時のエラーは、別の教材データや参加者の変更を守るためのものです。削除で回避しないでください。
+    -- 2つ目の8回ループは既存RAWの検査です。初回なら空であること、再実行なら今回の一時表と行数・内容が同じことを確認します。
+    -- 管理記録のないデータや参加者が変更したデータを上書きしないためです。不一致は削除で回避せず講師へ確認します。
     pass_count := 0;
     definitions := (SELECT * FROM IDENTIFIER(:definitions_table) ORDER BY TABLE_NAME);
     FOR definition IN definitions DO
@@ -249,7 +263,8 @@ BEGIN
     IF (pass_count != 8) THEN
       RAISE incompatible_data;
     END IF;
-    -- 予測結果が既にある場合は、今回と同じ版のデータから作られた記録があることを確認します。
+    -- 予測結果が残っている場合だけ版を検査します。別版の予測を今回の視聴データに混ぜないための確認で、学習処理ではありません。
+    -- 予測が未作成・空なら通過します。結果があるのに版を確認できない場合は停止し、予測表を消して進めません。
     SELECT COUNT(*) INTO :prediction_tables FROM BCAST_PLATFORM_HANDSON.INFORMATION_SCHEMA.TABLES
       WHERE TABLE_SCHEMA = 'ML' AND TABLE_NAME = 'PREDICTIONS';
     IF (prediction_tables > 0) THEN
@@ -270,8 +285,8 @@ BEGIN
         END IF;
       END IF;
     END IF;
-    -- すべての事前確認を通過した場合だけ、8表の内容を確認済みの一時テーブルから入れ直します。
-    -- DELETEを含むため、この部分だけを切り出して実行しないでください。
+    -- 3つ目の8回ループで初めてRAW本体へ反映します。全表の事前検査を終えてから、検査済みの一時表の行で入れ直します。
+    -- DELETEとINSERTはまだ未確定です。この部分だけを実行せず、後続の書込検査・COMMITまで同じブロックで扱います。
     pass_count := 0;
     definitions := (SELECT * FROM IDENTIFIER(:definitions_table) ORDER BY TABLE_NAME);
     FOR definition IN definitions DO
@@ -286,7 +301,8 @@ BEGIN
     IF (pass_count != 8) THEN
       RAISE incompatible_data;
     END IF;
-    -- 書込後にも件数と内容の照合値を確認し、途中でデータが欠けていないか調べます。
+    -- 4つ目の8回ループは書込後の検査です。入れる前だけでなく、入った後の件数・内容も一時表の記録と比較します。
+    -- 不一致0の表が8つそろってから確定へ進みます。途中の表だけが新しい状態で確定されるのを防ぎます。
     pass_count := 0;
     definitions := (SELECT * FROM IDENTIFIER(:definitions_table) ORDER BY TABLE_NAME);
     FOR definition IN definitions DO
@@ -306,7 +322,7 @@ BEGIN
     IF (pass_count != 8) THEN
       RAISE incompatible_data;
     END IF;
-    -- 8表の確認後、取込記録も更新してまとめて確定します。
+    -- 検査済み8表と、その版・件数・照合値の記録をCOMMITで一緒に確定します。次回はこの記録を再利用の判断に使います。
     DELETE FROM BCAST_PLATFORM_HANDSON.RAW.DATASET_RELEASE_FILES;
     INSERT INTO BCAST_PLATFORM_HANDSON.RAW.DATASET_RELEASE_FILES SELECT * FROM IDENTIFIER(:manifest_table);
     IF (SQLROWCOUNT != 8) THEN
@@ -320,7 +336,7 @@ BEGIN
       ROLLBACK;
       RAISE;
   END;
-  -- 確定後、今回の確認に使った一時テーブルだけを片付けます。
+  -- 6. 後片付け: 最後の8回ループは今回の仮置き表だけを削除します。取込済みRAWと再実行用の管理記録は残します。
   pass_count := 0;
   definitions := (SELECT * FROM IDENTIFIER(:definitions_table) ORDER BY TABLE_NAME);
   FOR definition IN definitions DO
@@ -337,5 +353,7 @@ END;
 $$;
 
 -- 8行の取込記録を確認します。途中でエラーが出た場合、記録が表示されても今回の成功とは判断しないでください。
+-- TABLE_NAMEごとにF1_SIGNAL_V2・期待件数・今回のLOADED_ATを確認します。照合値そのものを暗記・編集する必要はありません。
+-- ブロックが最後まで成功し8行を確認できたら、第2章の局別dbtビルドへ進みます。ここではCOMMONはまだ作成しません。
 SELECT DATASET_VERSION, TABLE_NAME, FILE_NAME, FILE_CONTENT_KEY, ROW_COUNT, ROW_FINGERPRINT, LOADED_AT
 FROM BCAST_PLATFORM_HANDSON.RAW.DATASET_RELEASE_FILES ORDER BY TABLE_NAME;

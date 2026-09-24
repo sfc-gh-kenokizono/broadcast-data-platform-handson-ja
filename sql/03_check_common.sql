@@ -8,6 +8,7 @@ USE SECONDARY ROLES NONE;
 USE WAREHOUSE BCAST_PLATFORM_COMMON_WH;
 
 -- 8ファイルすべてが教材のデータ版F1_SIGNAL_V2として記録されていることを確認します。
+-- このブロックは検査だけで、成功時に明細表は返しません。エラーなしで終了したら次の集計へ進みます。
 EXECUTE IMMEDIATE $$
 DECLARE
   invalid_release EXCEPTION (-20007, 'Expected complete F1_SIGNAL_V2 release metadata. Run setup/load before common validation.');
@@ -24,6 +25,7 @@ $$;
 
 -- 共通の日次表の行数、重複を除いた端末数、視聴回数・時間、期間、ジャンル数を確認します。
 -- MART_ROWSは集計表の行数です。視聴回数はTOTAL_SESSIONSで確認してください。
+-- 結果は1行です。期間2026-05-01〜2026-07-31・8ジャンルを確認し、件数と時間は次の照合で局別表と比較します。
 SELECT COUNT(*) AS MART_ROWS, COUNT(DISTINCT DEVICE_ID) AS REACH_DEVICES,
        SUM(SESSION_COUNT) AS TOTAL_SESSIONS, SUM(VIEW_MINUTES) AS TOTAL_MINUTES,
        MIN(VIEW_DATE) AS FIRST_DATE, MAX(VIEW_DATE) AS LAST_DATE,
@@ -32,12 +34,13 @@ FROM BCAST_PLATFORM_HANDSON.COMMON.VIEWING_DAILY;
 
 -- 日次表と毎分表について、5局の合計がCOMMONと一致するかを確認します。
 -- 空の表や指標のNULLも検出します。集計が途中の状態で後続へ進まないための確認です。
+-- WHEREは不一致だけを拾います。内部のmismatches=0が成功で、異常があれば例外で停止します。成功明細は表示しません。
 EXECUTE IMMEDIATE $$
 DECLARE
   reconciliation_failed EXCEPTION (-20009, 'COMMON reconciliation failed. Stop: rebuild and test all station and COMMON tables before ML or app.');
   mismatches INTEGER;
 BEGIN
--- 日次表: 行数・視聴回数・視聴時間を照合します。
+-- 日次表: expectedは5局の合計、actualはCOMMONです。行数・回数は一致、時間は小数の許容誤差内なら通過します。
 WITH station_totals AS (
   SELECT COUNT(*) AS ROWS_COUNT, SUM(SESSION_COUNT) AS SESSIONS, SUM(VIEW_MINUTES) AS MINUTES,
          COUNT(*) - COUNT(SESSION_COUNT) + COUNT(*) - COUNT(VIEW_MINUTES) AS INVALID_ROWS
@@ -70,7 +73,7 @@ IF (mismatches != 0) THEN
   RAISE reconciliation_failed;
 END IF;
 
--- 毎分表: 行数と、各分の視聴端末数の合計を照合します。
+-- 毎分表: 各分の端末数を足した「端末分数」と行数を照合します。同じ端末を分ごとに数えるため、リーチとは違います。
 WITH station_totals AS (
   SELECT COUNT(*) AS ROWS_COUNT, SUM(VIEWING_DEVICES) AS DEVICE_MINUTES,
          COUNT(*) - COUNT(VIEWING_DEVICES) AS INVALID_ROWS FROM BCAST_PLATFORM_HANDSON.NW01.MART_MINUTE_AUDIENCE
@@ -102,6 +105,8 @@ $$;
 -- RAWの全局結合やテーブル作成は行いません。RAW件数には不正区間と完全重複が含まれます。
 -- ACTUAL_METRICS内の*_DIFFERENCEが0であることを確認してください。
 -- 視聴時間の小数計算には丸め誤差があるため、絶対差1e-6または相対差1e-9の大きい方まで許容します。
+-- 結果はNW01〜NW05の5行です。INVALID_ROWSやVALID_DUPLICATE_ROWSはRAWから除く対象なので、0でなくても異常ではありません。
+-- 確認するのは除去・集計後の差分です。ここでいうmetricsは加工結果の照合値で、MLの精度評価ではありません。
 EXECUTE IMMEDIATE $$
 DECLARE
   metrics ARRAY DEFAULT ARRAY_CONSTRUCT();
@@ -193,6 +198,7 @@ $$;
 
 -- 局別・日別に、観測された分の数とピーク時の端末数を確認します。
 -- 分内視聴端末数の総和は「端末分数」です。全期間リーチや実視聴の経過分数とは別の指標です。
+-- これは異常行の抽出ではなく、正常時にも局・日ごとの行が出る集計です。観測分数を必ず1,440とみなさないでください。
 SELECT NETWORK_ID, VIEW_DATE, COUNT(*) AS OBSERVED_MINUTE_BUCKETS,
        MIN(MINUTE_AT) AS FIRST_MINUTE, MAX(MINUTE_AT) AS LAST_MINUTE,
        MAX(VIEWING_DEVICES) AS PEAK_MINUTE_DEVICES,
@@ -202,6 +208,8 @@ GROUP BY NETWORK_ID, VIEW_DATE ORDER BY VIEW_DATE, NETWORK_ID;
 
 -- ラベル表と視聴データの端末IDを突き合わせます。両方の結果が0であることを確認してください。
 -- ラベル行があることと、正解ラベルを利用できること（LABEL_AVAILABLE）は異なります。
+-- 左の数値は「ラベル表にだけいる端末」、右は「視聴表にだけいる端末」の数です。結果1行の両列が0なら対応しています。
+-- 上の全検査が成功してから次章へ進みます。ラベル不明の端末を0扱いにしたり、差分のあるままML・アプリへ進めません。
 WITH observed AS (
   SELECT DISTINCT DEVICE_ID FROM BCAST_PLATFORM_HANDSON.COMMON.VIEWING_DAILY
 )

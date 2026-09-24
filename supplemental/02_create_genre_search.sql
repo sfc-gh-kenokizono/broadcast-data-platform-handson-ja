@@ -20,6 +20,9 @@ SELECT CURRENT_ACCOUNT() AS ACCOUNT_NAME,
 -- GUIDE_TEXTを検索対象、GENREを絞り込み用の属性として登録します。
 -- 下の説明は実在番組の情報ではなく架空の5件です。本編の視聴実績や8ジャンル全体を検索するものではありません。
 -- 作成時に初回の検索用データを準備し、以降の更新目標は1時間に設定します。
+-- EMBEDDING_MODELは説明文を意味で比較するためのモデルの選択です。F1同居予測の学習とは別です。
+-- FULLは検索元全体からの更新、ON_CREATEは作成時の初期化です。元は固定のVALUES 5件なので、視聴ログが増えても検索対象は増えません。
+-- TARGET_LAGはデータの鮮度目標で、検索の応答時間ではありません。作成が成功したら下の問合せで結果の中身を確認します。
 CREATE CORTEX SEARCH SERVICE BCAST_PLATFORM_HANDSON.MART.SVC_GENRE_GUIDE
     ON GUIDE_TEXT
     ATTRIBUTES GENRE
@@ -40,6 +43,8 @@ FROM VALUES
 
 -- スポーツに関する質問で最大3件を検索します。返された説明が質問の内容に合うか確認してください。
 -- このサービスは本編のVIEWING_AGENTに自動追加されません。
+-- SEARCH_RESULTは検索結果をまとめた1つの値です。最大3件とはその中の候補数で、SQL結果が3行になるという意味ではありません。
+-- SPORTSの説明が質問に合う候補として含まれるか確認します。これは関連文の検索であり、視聴数の集計や回答文の生成ではありません。
 SELECT SNOWFLAKE.CORTEX.SEARCH_PREVIEW(
     'BCAST_PLATFORM_HANDSON.MART.SVC_GENRE_GUIDE',
     '{"query":"試合の結果や選手の活躍を知りたい","columns":["GENRE","GUIDE_TEXT"],"limit":3}'

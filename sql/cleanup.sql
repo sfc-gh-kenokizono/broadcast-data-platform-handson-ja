@@ -17,16 +17,22 @@
 -- ============================================
 USE ROLE ACCOUNTADMIN;
 
--- このDB内の表・モデル・公開済みアプリなどをまとめて削除します。以降の章を続ける場合は実行しないでください。
+-- DROPは停止ではなく削除です。DB内のスキーマ・表・モデル・Agent・Search・公開済みアプリ等が利用できなくなります。
+-- ロールバックで一括復元する手順ではありません。DBの復旧にはTime Travelの保持期間や対象の対応可否などの条件があります。
+-- 全成果物の復旧は保証されないため、退避と削除対象の確認が必要です。以降の章を続ける場合は実行しないでください。
 DROP DATABASE IF EXISTS BCAST_PLATFORM_HANDSON;
--- 教材専用の局別・共通ウェアハウスを削除します。
+-- DBを削除してもWHは別オブジェクトなので残ります。以下で教材専用6個を削除し、計算資源の設定も片付けます。
+-- SUSPENDと違い、再利用にはWHの再作成が必要です。IF EXISTSは「存在しない」エラーを避けるだけで、安全性の確認ではありません。
 DROP WAREHOUSE IF EXISTS BCAST_PLATFORM_NW01_WH;
 DROP WAREHOUSE IF EXISTS BCAST_PLATFORM_NW02_WH;
 DROP WAREHOUSE IF EXISTS BCAST_PLATFORM_NW03_WH;
 DROP WAREHOUSE IF EXISTS BCAST_PLATFORM_NW04_WH;
 DROP WAREHOUSE IF EXISTS BCAST_PLATFORM_NW05_WH;
 DROP WAREHOUSE IF EXISTS BCAST_PLATFORM_COMMON_WH;
--- 教材専用のGit接続設定とロールを削除します。他の用途で使っていないことを確認してください。
+-- API統合とロールもDB外の設定なので別途削除します。ロールに付けた権限も失われ、再作成だけでは元の付与状態に戻りません。
+-- 他用途の利用がないことを確認してください。GitHubの元リポジトリや各自のWorkspaceは、このSQLでは削除されません。
 DROP INTEGRATION IF EXISTS BCAST_PLATFORM_GIT_API;
 DROP ROLE IF EXISTS BCAST_PLATFORM_ANALYST_ROLE;
 DROP ROLE IF EXISTS BCAST_PLATFORM_ENGINEER_ROLE;
+-- 各DROPの成功後、画面を更新して教材DB・専用WH・接続設定・ロールが残っていないことを確認します。
+-- SQLの成功だけで後片付け完了とはしません。冒頭で停止したNotebookサービスとWorkspace開発アプリの状態も別途確認します。

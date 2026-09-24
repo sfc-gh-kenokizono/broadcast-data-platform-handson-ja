@@ -7,13 +7,15 @@
 USE ROLE BCAST_PLATFORM_ENGINEER_ROLE;
 USE WAREHOUSE BCAST_PLATFORM_COMMON_WH;
 
--- 確認ポイント: GUI で MART.VIEWING_AGENT を作成・設定・保存するまでここで停止。
--- ツールは SV_VIEWING (Cortex Analyst) の1つだけ。
--- Auto、BCAST_PLATFORM_COMMON_WH、Query timeout 120秒を確認する。
+-- 1. 先にGUIでMART.VIEWING_AGENTを作成・設定・保存します。未作成なら以下の確認SQLへ進まず、ここで停止します。
+-- ツールはSV_VIEWING（Cortex Analyst）の1つだけ。質問をこの定義に沿う集計SQLへ変換し、実績の数値を取得します。
+-- Autoはモデルの自動選択、COMMON_WHは集計SQLの計算資源、Query timeout 120秒はそのSQLの待ち時間上限です。
+-- 2. 保存後、SHOWでVIEWING_AGENTがあること、DESCRIBEで参照先と設定を確認します。これだけでは回答の正しさは未確認です。
 SHOW AGENTS IN SCHEMA BCAST_PLATFORM_HANDSON.MART;
 DESCRIBE AGENT BCAST_PLATFORM_HANDSON.MART.VIEWING_AGENT;
 
--- GUI の保存内容を確認後に実行。所有者または対象 GRANT を行えるロールが必要です。
+-- 3. 保存内容を確認後、ANALYSTにAgentの利用を許可します。所有者またはこのGRANTを行えるロールで実行します。
+-- GRANTはGUIの保存・公開操作や回答テストの代わりにはなりません。成功後はGUIで同条件の3指標を質問し、04の値と比べます。
 GRANT USAGE ON AGENT BCAST_PLATFORM_HANDSON.MART.VIEWING_AGENT
   TO ROLE BCAST_PLATFORM_ANALYST_ROLE;
 
@@ -21,6 +23,8 @@ GRANT USAGE ON AGENT BCAST_PLATFORM_HANDSON.MART.VIEWING_AGENT
 -- CREATE OR REPLACE は使わず、同名オブジェクトの上書きを防ぎます。
 -- SQLの作成成功だけでGUIでの利用確認は完了しません。文章・ツール・設定値と実際の回答を確認してください。
 -- 実行後は上の SHOW/DESCRIBE/GRANT と GUI の保存・公開確認に戻ってください。
+-- 以下の /* ... */ 内は代替DDLの見本で、通常の実行対象ではありません。GUI経路と両方を実行しないでください。
+-- Agentが答えるのは視聴実績だけです。F1同居予測・モデル精度・番組内容検索は、この1ツールでは扱いません。
 /*
 CREATE AGENT BCAST_PLATFORM_HANDSON.MART.VIEWING_AGENT
   COMMENT = '地上波5局の合成視聴データを、日付・放送局・ジャンル別に集計する日本語の分析エージェントです。リーチ、総視聴時間、総視聴回数を扱います。'
