@@ -1,8 +1,12 @@
+# 同じdbtプロジェクトを動かす6つの接続先設定です。targetで局別WHまたは共通WHと保存先を選びます。
+# WHは計算リソースであり、プロジェクトや権限境界ではありません。モデルの選択には同名のselectorを併用します。
 bcast_platform:
   target: nw01
   outputs:
     nw01:
       type: snowflake
+      # Snowflake内で実行するため、account・userは空欄のまま使います。パスワードや鍵などの認証情報は追記しません。
+      # 各targetのロール・DB・スキーマ・WHは、実行前に教材の設定と一致するか確認されます。
       account: ''
       user: ''
       role: BCAST_PLATFORM_ENGINEER_ROLE
@@ -46,6 +50,7 @@ bcast_platform:
       schema: NW05
       warehouse: BCAST_PLATFORM_NW05_WH
       threads: 4
+    # commonは作成済みの局別マートを統合する設定です。局別の前処理をこのWHでまとめて実行する設定ではありません。
     common:
       type: snowflake
       account: ''

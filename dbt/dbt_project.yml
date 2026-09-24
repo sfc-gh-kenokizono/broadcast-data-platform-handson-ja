@@ -1,3 +1,5 @@
+# 5局の変換と共通マートをまとめた1つのdbtプロジェクトです。モデルの保存先・タグ・実行前後の確認を定義します。
+# 実行に使うWHなどはprofiles.ymlのtargetで、実行対象はselectors.ymlで別々に指定します。
 name: bcast_platform_dbt
 version: '1.0.0'
 config-version: 2
@@ -8,12 +10,14 @@ model-paths: [models]
 macro-paths: [macros]
 test-paths: [tests]
 
+# 開始前はtargetと選択範囲の一致、終了後は選択したモデル／テストの成功を確認します。権限制御の代わりではありません。
 on-run-start:
   - "{{ assert_execution_scope() }}"
 
 on-run-end:
   - "{{ assert_build_results_all_pass(results) }}"
 
+# 各局4モデルと共通2モデルの計22モデルをテーブルとして保存し、局別のスキーマと選択用タグを付けます。
 models:
   bcast_platform_dbt:
     +database: BCAST_PLATFORM_HANDSON
@@ -37,6 +41,7 @@ models:
       +schema: COMMON
       +tags: [common]
 
+# テストの不正行はエラー扱いにし、不正行を別テーブルへ保存する機能は使いません。
 data_tests:
   bcast_platform_dbt:
     +severity: error

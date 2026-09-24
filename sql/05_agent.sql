@@ -1,12 +1,13 @@
+-- 目的: GUIで作成する分析エージェントの設定を確認し、分析用ロールに利用権限を付与します。
+-- 前提: 04_semantic.sqlが完了し、SV_VIEWINGの結果と元テーブルの集計が一致していること。
 -- GUI が主経路です。docs/05_agent.md と docs/agent_texts.md を先に開いてください。
--- 全選択で実行しないでください。以下は対象教材環境で参加者が選択実行する手順です。
--- 2026-09-18にF1_SIGNAL_V2対応の代替DDLを、既存Agentのバックアップ後に検証用CREATE OR REPLACEで実行し、USAGE付与まで確認済み。
--- 参加者用は新規CREATEのままです。この文書更新ではSQLを再実行していません。
--- GUIの作成・保存・公開とPlayground/CoWorkの実際の回答はUNTESTED（未検証）。
+-- 実行方法: 全選択で実行しないでください。以下は対象教材環境で参加者が選択実行する手順です。
+-- 完了の目安: SHOW/DESCRIBEで対象Agentと設定を確認でき、GRANTが成功すること。
+-- 続けてGUIで保存・公開を確認し、Playground/CoWorkの回答を04_semantic.sqlの同条件の結果と比較します。
 USE ROLE BCAST_PLATFORM_ENGINEER_ROLE;
 USE WAREHOUSE BCAST_PLATFORM_COMMON_WH;
 
--- CHECKPOINT: GUI で MART.VIEWING_AGENT を作成・設定・保存するまでここで停止。
+-- 確認ポイント: GUI で MART.VIEWING_AGENT を作成・設定・保存するまでここで停止。
 -- ツールは SV_VIEWING (Cortex Analyst) の1つだけ。
 -- Auto、BCAST_PLATFORM_COMMON_WH、Query timeout 120秒を確認する。
 SHOW AGENTS IN SCHEMA BCAST_PLATFORM_HANDSON.MART;
@@ -16,9 +17,9 @@ DESCRIBE AGENT BCAST_PLATFORM_HANDSON.MART.VIEWING_AGENT;
 GRANT USAGE ON AGENT BCAST_PLATFORM_HANDSON.MART.VIEWING_AGENT
   TO ROLE BCAST_PLATFORM_ANALYST_ROLE;
 
--- 保険: GUI でまだ Agent を作っていない場合のみ、このコメント内の SQL を選択実行。
+-- 代替手順: GUIでまだAgentを作っておらず、講師から案内があった場合のみ、下のコメント内のSQLを選択実行します。
 -- CREATE OR REPLACE は使わず、同名オブジェクトの上書きを防ぎます。
--- GUI の文章と設定値を合わせていますが、GUI/SQL の動作同等性は未検証です。
+-- SQLの作成成功だけでGUIでの利用確認は完了しません。文章・ツール・設定値と実際の回答を確認してください。
 -- 実行後は上の SHOW/DESCRIBE/GRANT と GUI の保存・公開確認に戻ってください。
 /*
 CREATE AGENT BCAST_PLATFORM_HANDSON.MART.VIEWING_AGENT

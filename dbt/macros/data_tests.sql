@@ -1,3 +1,5 @@
+{# 各テストは正常な行ではなく、不正な行・不一致の比較結果を返します。結果が0行ならPASSです。 #}
+{# 指定した列の組み合わせで複数行になっているキーを返し、1行の単位が守られているかを確認します。 #}
 {% test unique_grain(model, columns) %}
 select {{ columns | join(', ') }}, count(*) as ROW_COUNT
 from {{ model }}
@@ -5,6 +7,7 @@ group by {{ columns | join(', ') }}
 having count(*) > 1
 {% endtest %}
 
+{# 指定した必須列のどれかがNULLになっている行を返します。 #}
 {% test not_null_columns(model, columns) %}
 select *
 from {{ model }}
@@ -14,6 +17,7 @@ where
 {% endfor %}
 {% endtest %}
 
+{# 整形後の区間について、時刻の欠損・長さが0以下または24時間超・計算した分数との不一致を返します。 #}
 {% macro invalid_intervals(clean_relation) %}
 select EVENT_ID, NETWORK_ID, DEVICE_ID, VIEW_FROM, VIEW_TO, VIEW_MINUTES
 from {{ clean_relation }}
@@ -26,6 +30,7 @@ where VIEW_TO <= VIEW_FROM
    or VIEW_MINUTES is null
 {% endmacro %}
 
+{# 端末IDが教材のC000001〜C020000に収まらない行を返します。実在する個人を識別するIDではありません。 #}
 {% test synthetic_device_id(model, column_name) %}
 select {{ column_name }}
 from {{ model }}
@@ -34,6 +39,8 @@ where {{ column_name }} is null
    or try_to_number(substr({{ column_name }}, 2)) not between 1 and 20000
 {% endtest %}
 
+{# 有効な元ログを重複除外した期待値と、整形後・日次集計の回数／時間を照合します。
+   全体合計だけでなく端末・日・ジャンル別も確認し、不一致や空の元データがあれば比較結果を返します。 #}
 {% macro station_volume_matches(raw_relation, clean_relation, daily_relation) %}
 with raw_valid as (
     select distinct EVENT_ID, NETWORK_ID, DEVICE_ID, VIEW_FROM, VIEW_TO, GENRE
@@ -79,6 +86,8 @@ where expected.SESSIONS = 0
    or exists (select 1 from daily_differences)
 {% endmacro %}
 
+{# 整形済み区間から期待する分数・最初／最後の分を求め、展開後の行数・重複・日付と照合して不一致を返します。
+   終了時刻の1ナノ秒前を使うことで、分の境界で終了する区間に余分な1分を数えません。 #}
 {% macro minute_expansion_matches(clean_relation, minutes_relation) %}
 with expected as (
     select EVENT_ID, NETWORK_ID, DEVICE_ID,
@@ -108,6 +117,7 @@ where expected.EVENT_ID is null or actual.EVENT_ID is null
    or actual.INVALID_BUCKETS > 0
 {% endmacro %}
 
+{# 分展開から重複を除いた端末数を再集計し、分別マートの欠落・余分な行・不正な日時や件数を返します。 #}
 {% macro minute_audience_matches(minutes_relation, audience_relation) %}
 with expected as (
     select NETWORK_ID, VIEW_DATE, MINUTE_AT, count(distinct DEVICE_ID) as VIEWING_DEVICES
@@ -130,6 +140,8 @@ where expected.NETWORK_ID is null or actual.NETWORK_ID is null
    or expected.VIEWING_DEVICES != actual.VIEWING_DEVICES
 {% endmacro %}
 
+{# dailyは日次、minuteは分別について、5局のマートと共通マートの局別行数・合計を照合し、不一致などを返します。
+   分別の合計は各分の端末数を足した延べ数です。期間全体で端末を重複除外したリーチではありません。 #}
 {% macro common_totals_match(kind) %}
 {% set daily = kind == 'daily' %}
 with expected as (

@@ -1,6 +1,9 @@
+# 22モデルの列の意味と品質テストを定義します。テストが返すのは不正な行で、0行ならPASSです。
+# &で共通定義に名前を付け、*と<<で他局へ再利用します。局IDのように局ごとに異なる値は個別に指定します。
 version: 2
 
 models:
+  # 整形済みログは1イベント1行です。必須値・局ID・局内イベントIDの一意性・端末ID・8種類のジャンルを確認します。
   - &clean_model
     name: clean_viewing_nw01
     description: Exact six-column raw duplicates removed before genre normalization; retain only positive intervals up to 86400 seconds.
@@ -64,6 +67,7 @@ models:
           column_name: NETWORK_ID
           values: [NW05]
 
+  # 日次マートは局・端末・開始日・ジャンルで1行です。日付をまたぐ視聴も開始日に計上し、回数と分数を持ちます。
   - &daily_model
     name: mart_device_daily_nw01
     description: NW01 device/day/genre aggregate; whole cleaned intervals belong to their start date and start-program genre, not exact program watch time.
@@ -101,8 +105,10 @@ models:
 
   - <<: *daily_model
     name: viewing_daily
+    # 5局の作成済み日次マートを統合しても、1行の単位と品質テストは同じです。
     description: UNION ALL of five already-materialized station marts; preserves station/device/day/genre grain.
 
+  # 分展開は局・イベント・分で1行です。終了時刻は含めず、日付は開始日ではなく各分の時刻から求めます。
   - &minutes_model
     name: viewing_minutes_nw01
     description: One row per cleaned event and overlapping minute bucket; exclusive end, not second-by-second concurrency.
@@ -131,6 +137,7 @@ models:
   - <<: *minutes_model
     name: viewing_minutes_nw05
 
+  # 分別マートは局・日・分で1行です。その分に少しでも視聴した端末を重複除外して数え、人数や瞬間の同時視聴数とは区別します。
   - &audience_model
     name: mart_minute_audience_nw01
     description: Distinct TVs intersecting each station minute bucket (分内視聴端末数), not people or simultaneous viewers at an exact second.
@@ -158,4 +165,5 @@ models:
     name: mart_minute_audience_nw05
   - <<: *audience_model
     name: minute_audience
+    # 共通マートにも局別の行を残します。局別端末数を足しても、局をまたぐ重複除外済みリーチにはなりません。
     description: UNION ALL of five materialized station minute marts only; no raw or expanded-row union.

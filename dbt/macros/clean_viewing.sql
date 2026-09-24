@@ -1,3 +1,5 @@
+{# 局別の元ログを受け取り、正の長さで24時間以内の視聴区間だけを残す共通処理です。
+   元の6列がすべて同じ行を重複除外してからジャンルを整え、丸めない視聴時間（分）を付けます。 #}
 {% macro clean_viewing(raw_relation) %}
 with deduplicated as (
     select distinct EVENT_ID, NETWORK_ID, DEVICE_ID, VIEW_FROM, VIEW_TO, GENRE

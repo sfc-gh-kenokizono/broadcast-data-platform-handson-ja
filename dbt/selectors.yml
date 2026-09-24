@@ -1,3 +1,5 @@
+# タグにより実行する局／共通モデルを選びます。同名のtargetをprofiles.ymlから選び、計算用WHも合わせます。
+# cautiousは参照先がすべて選択範囲に入るテストだけを自動選択します。commonのために上流の局別モデルを再実行しません。
 selectors:
   - name: nw01
     definition:

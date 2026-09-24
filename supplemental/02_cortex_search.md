@@ -165,7 +165,7 @@ CREATE後はSearch自身が更新を管理しますが、追加のTaskやdbtの�
 
 ## 参考
 
-公式構文は確認していますが、このアカウントでの作成・検索・停止・削除は未検証です。
+この補足の作成・検索・停止・削除は、演習環境での動作確認前です。
 講師の案内に従い、結果を確認しながら進めてください。
 
 - [CREATE CORTEX SEARCH SERVICE](https://docs.snowflake.com/en/sql-reference/sql/create-cortex-search)

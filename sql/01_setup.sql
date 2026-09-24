@@ -1,10 +1,14 @@
 -- ============================================
--- 1. 管理者による専用環境の準備。F1_SIGNAL_V2は2026-09-18にセットアップ・固定コミットのロードと同版再ロードを実行確認済み。
--- Git Workspace作成を含む受講者GUIの通し操作は未検証。
+-- 目的: 教材専用のロール、データベース、計算用ウェアハウス、データ取込先を準備します。
+-- 前提: 講師が指定したハンズオン用アカウントで、ACCOUNTADMINを使用できること。
+-- 実行方法: 接続先を確認し、上から順に実行してください。エラーが出たら後続へ進まないでください。
 -- 同名オブジェクトが別用途で存在する場合は実行しないでください。
+-- 完了の目安: 最後のLISTで固定コミットのParquetファイル8個を確認できること。
+-- 1. 管理者による専用環境の準備
 -- ============================================
 USE ROLE ACCOUNTADMIN;
 
+-- 作成・加工用と分析・参照用のロールを用意し、現在の参加者に割り当てます。
 CREATE ROLE IF NOT EXISTS BCAST_PLATFORM_ENGINEER_ROLE;
 CREATE ROLE IF NOT EXISTS BCAST_PLATFORM_ANALYST_ROLE;
 GRANT ROLE BCAST_PLATFORM_ENGINEER_ROLE TO ROLE SYSADMIN;
@@ -18,9 +22,10 @@ CREATE DATABASE IF NOT EXISTS BCAST_PLATFORM_HANDSON;
 CREATE WAREHOUSE IF NOT EXISTS BCAST_PLATFORM_COMMON_WH
   WAREHOUSE_SIZE = 'XSMALL' AUTO_SUSPEND = 60 AUTO_RESUME = TRUE INITIALLY_SUSPENDED = TRUE;
 USE WAREHOUSE BCAST_PLATFORM_COMMON_WH;
+-- 既存のラベル表が教材と異なる構造の場合は、データを変更せずここで停止します。
 EXECUTE IMMEDIATE $$
 DECLARE
-  incompatible_schema EXCEPTION (-20001, 'Legacy or incompatible DEVICE_LABELS schema. Stop here. Use an explicitly approved backup-first authoring migration; sql/00_reset_small_sample.sql is only for disposable small labels, not a dataset release migration.');
+  incompatible_schema EXCEPTION (-20001, '既存のラベル表がこの教材の構造と異なります。ここで作業を止め、講師に確認してください。既存データを削除・上書きしないでください。');
   label_columns INTEGER;
   compatible_columns INTEGER;
 BEGIN
@@ -36,6 +41,7 @@ BEGIN
   END IF;
 END;
 $$;
+-- RAWは取込元、NW01〜NW05は局別加工、COMMONは共通集計、MLは機械学習、MARTは分析用です。
 CREATE SCHEMA IF NOT EXISTS BCAST_PLATFORM_HANDSON.RAW;
 CREATE SCHEMA IF NOT EXISTS BCAST_PLATFORM_HANDSON.NW01;
 CREATE SCHEMA IF NOT EXISTS BCAST_PLATFORM_HANDSON.NW02;
@@ -47,6 +53,7 @@ CREATE SCHEMA IF NOT EXISTS BCAST_PLATFORM_HANDSON.ML;
 CREATE SCHEMA IF NOT EXISTS BCAST_PLATFORM_HANDSON.MART;
 CREATE SCHEMA IF NOT EXISTS BCAST_PLATFORM_HANDSON.INTEGRATIONS;
 
+-- 局別の処理と共通処理の計算資源を分けます。未使用時は60秒で自動停止します。
 CREATE WAREHOUSE IF NOT EXISTS BCAST_PLATFORM_NW01_WH
   WAREHOUSE_SIZE = 'XSMALL' AUTO_SUSPEND = 60 AUTO_RESUME = TRUE INITIALLY_SUSPENDED = TRUE;
 CREATE WAREHOUSE IF NOT EXISTS BCAST_PLATFORM_NW02_WH
@@ -62,7 +69,7 @@ CREATE WAREHOUSE IF NOT EXISTS BCAST_PLATFORM_COMMON_WH
 
 -- ============================================
 -- 2. エンジニアの作成権限とアナリストの参照権限
--- 作成者が後続オブジェクトを所有する。既定ロール・既定WHは変更しない。
+-- 後続の表などは作成したロールが所有します。利用者の既定ロール・既定ウェアハウスは変更しません。
 -- ============================================
 GRANT USAGE ON DATABASE BCAST_PLATFORM_HANDSON TO ROLE BCAST_PLATFORM_ENGINEER_ROLE;
 GRANT USAGE ON DATABASE BCAST_PLATFORM_HANDSON TO ROLE BCAST_PLATFORM_ANALYST_ROLE;
@@ -108,7 +115,8 @@ GRANT DATABASE ROLE SNOWFLAKE.CORTEX_USER TO ROLE BCAST_PLATFORM_ENGINEER_ROLE;
 GRANT DATABASE ROLE SNOWFLAKE.CORTEX_USER TO ROLE BCAST_PLATFORM_ANALYST_ROLE;
 
 -- ============================================
--- 3. Git API統合。許可先はこの新教材だけ。
+-- 3. Git API統合: Snowflakeから教材の公開リポジトリに接続するための設定です。
+-- 接続を許可するURLは、この教材のリポジトリだけに限定します。
 -- ============================================
 CREATE API INTEGRATION IF NOT EXISTS BCAST_PLATFORM_GIT_API
   API_PROVIDER = git_https_api
@@ -163,6 +171,7 @@ CREATE TABLE IF NOT EXISTS BCAST_PLATFORM_HANDSON.RAW.PROGRAM_SCHEDULE (
   AIR_TO TIMESTAMP_NTZ
 );
 
+-- 取込ファイルの版・件数・内容の照合値を記録し、別のデータとの混在を防ぎます。
 CREATE TABLE IF NOT EXISTS BCAST_PLATFORM_HANDSON.RAW.DATASET_RELEASE_FILES (
   DATASET_VERSION VARCHAR NOT NULL,
   TABLE_NAME VARCHAR NOT NULL,
@@ -172,6 +181,7 @@ CREATE TABLE IF NOT EXISTS BCAST_PLATFORM_HANDSON.RAW.DATASET_RELEASE_FILES (
   ROW_FINGERPRINT NUMBER(38,0) NOT NULL,
   LOADED_AT TIMESTAMP_NTZ NOT NULL
 );
+-- データ取込が重なったときに、同時に表を書き換えないための管理用テーブルです。
 CREATE TABLE IF NOT EXISTS BCAST_PLATFORM_HANDSON.RAW.DATASET_LOAD_LOCK (
   LOCK_ID INTEGER NOT NULL,
   LAST_LOADER VARCHAR
@@ -180,6 +190,7 @@ MERGE INTO BCAST_PLATFORM_HANDSON.RAW.DATASET_LOAD_LOCK AS target
 USING (SELECT 1 AS LOCK_ID) AS source ON target.LOCK_ID = source.LOCK_ID
 WHEN NOT MATCHED THEN INSERT (LOCK_ID) VALUES (source.LOCK_ID);
 
+-- Parquetの日時などの型を読み取る設定と、ファイルを一時的に置く内部ステージを用意します。
 CREATE FILE FORMAT IF NOT EXISTS BCAST_PLATFORM_HANDSON.INTEGRATIONS.BCAST_PLATFORM_PARQUET
   TYPE = PARQUET
   COMPRESSION = AUTO
@@ -190,9 +201,13 @@ CREATE STAGE IF NOT EXISTS BCAST_PLATFORM_HANDSON.INTEGRATIONS.BCAST_PLATFORM_RA
   FILE_FORMAT = (FORMAT_NAME = 'BCAST_PLATFORM_HANDSON.INTEGRATIONS.BCAST_PLATFORM_PARQUET');
 
 -- ============================================
--- 5. 公開リポジトリに接続する。
--- mainブランチに8個のParquet（局別5、番組マスタ2、ラベル1）があることを確認する。
--- Git接続が失敗した場合は02_load_parquet.sqlへ進まない。
+-- 5. 公開リポジトリに接続し、使用するデータを確認します。
+-- FETCHは必須です。Snowflake側のリポジトリ情報を取得してからLISTを実行してください。
+-- commits/<固定コミットID>/data/は、指定時点の内容を参照する仮想的なスナップショットです。
+-- GitHubに「commits」というフォルダーを作る必要はありません。固定コミットIDは変更しないでください。
+-- Parquetが8個（局別ログ5、番組マスタ1、放送予定1、ラベル1）あることを確認します。
+-- FETCH・LIST・ファイル読取でエラーが出たら、表示内容を確認して講師に連絡してください。
+-- branches/mainへ切り替えて続行せず、02_load_parquet.sqlへ進まないでください。
 -- ============================================
 CREATE GIT REPOSITORY IF NOT EXISTS BCAST_PLATFORM_HANDSON.INTEGRATIONS.BCAST_PLATFORM_REPO
   API_INTEGRATION = BCAST_PLATFORM_GIT_API

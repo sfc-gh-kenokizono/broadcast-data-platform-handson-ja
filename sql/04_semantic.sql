@@ -1,11 +1,13 @@
--- 2026-09-18にF1_SIGNAL_V2で、既存SVのバックアップ後の検証用CREATE OR REPLACEとSELECT/REFERENCES付与を確認済み。
--- 元テーブルの直接SQLと一致: リーチ20,000台、回数1,050,000回、時間12,511,642.266666668分。
--- この文書更新ではSQLを再実行していません。GUI/CoWorkの実際の回答はUNTESTED（未検証）。
--- 第2章の COMMON 作成後に、参加者が対象環境で実行します。
+-- 目的: 視聴日・放送局・ジャンルと、リーチ・視聴時間・視聴回数の意味をセマンティックビューに定義します。
+-- 前提: 第2章のCOMMON作成と03_check_common.sqlの確認が完了していること。
+-- 実行方法: ハンズオン用アカウントで上から順に実行してください。
 -- 新規作成用。既存 SV_VIEWING は自動置換せず、定義を確認してから扱ってください。
+-- 完了の目安: 定義が表示され、最後の2つのSELECTで同じ期間の3指標が一致すること。
+-- ここで得た値を、第5章でGUIから質問した回答と比較してください。
 USE ROLE BCAST_PLATFORM_ENGINEER_ROLE;
 USE WAREHOUSE BCAST_PLATFORM_COMMON_WH;
 
+-- DIMENSIONSは集計の切り口、METRICSは集計式です。説明文はAIが指標を解釈するときにも使われます。
 CREATE SEMANTIC VIEW BCAST_PLATFORM_HANDSON.MART.SV_VIEWING
   TABLES (
     viewing AS BCAST_PLATFORM_HANDSON.COMMON.VIEWING_DAILY
@@ -35,6 +37,7 @@ CREATE SEMANTIC VIEW BCAST_PLATFORM_HANDSON.MART.SV_VIEWING
   )
   COMMENT = '5局共通の視聴実績。COMMON のみを参照。受講時も同条件の元テーブル集計と指標を照合する';
 
+-- 分析用ロールから、このセマンティックビューを参照できるようにします。
 GRANT SELECT, REFERENCES ON SEMANTIC VIEW BCAST_PLATFORM_HANDSON.MART.SV_VIEWING
   TO ROLE BCAST_PLATFORM_ANALYST_ROLE;
 
@@ -47,6 +50,8 @@ SELECT * FROM SEMANTIC_VIEW(
   WHERE viewing.view_date BETWEEN '2026-05-01'::DATE AND '2026-07-31'::DATE
 );
 
+-- 同じ期間を元テーブルから直接集計します。リーチは端末数であり、人数や世帯数ではありません。
+-- TOTAL_MINUTESは分単位です。小数の末尾に丸め誤差がある場合は、表示桁だけで不一致と判断しないでください。
 SELECT COUNT(DISTINCT DEVICE_ID) AS DISTINCT_REACH,
        SUM(VIEW_MINUTES) AS TOTAL_MINUTES,
        SUM(SESSION_COUNT) AS TOTAL_SESSIONS

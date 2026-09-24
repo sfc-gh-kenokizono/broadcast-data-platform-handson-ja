@@ -1,5 +1,8 @@
+{# 実行前にtargetの局／共通範囲と、WH・DB・スキーマ・ロールの設定、選択モデル／テストの所属を照合します。
+   設定・選択の誤りを早期に止める教材用ガードです。Snowflakeの権限設定に代わるセキュリティ境界ではありません。 #}
 {% macro assert_execution_scope() %}
     {% set command = flags.WHICH if flags is defined and flags.WHICH is defined else 'build' %}
+    {# parse・compile・一覧取得ではこの実行範囲チェックを行わず、実行を伴うコマンドで確認します。 #}
     {% if execute and command not in ['compile', 'parse', 'ls', 'list'] %}
         {% set scopes = ['nw01', 'nw02', 'nw03', 'nw04', 'nw05', 'common'] %}
         {% if target.name not in scopes %}
@@ -25,6 +28,7 @@
                 {% for scope in scopes if scope in resource.tags %}
                     {% do owners.append(scope) %}
                 {% endfor %}
+                {# テスト自身に局タグがなければ、参照先モデルのタグから所属を確認します。 #}
                 {% if resource.resource_type == 'test' and not owners %}
                     {% for parent_id in resource.depends_on.nodes %}
                         {% set parent = graph.nodes.get(parent_id) %}
@@ -47,6 +51,8 @@
     {% endif %}
 {% endmacro %}
 
+{# 実行後の結果を受け取り、選択したモデル／テストがすべて成功・PASSしたかを確認します。
+   失敗・スキップ・結果なしを成功扱いにしない終了チェックです。作成済みテーブルを元に戻す処理ではありません。 #}
 {% macro assert_build_results_all_pass(results) %}
     {% set command = flags.WHICH if flags is defined and flags.WHICH is defined else 'build' %}
     {% if execute and command in ['build', 'run', 'test'] %}

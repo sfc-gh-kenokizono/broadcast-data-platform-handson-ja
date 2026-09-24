@@ -1,3 +1,5 @@
+"""共通マートと予測テーブルを読むSQLを組み立て、表示前に予測結果の整合性を確認します。"""
+
 from datetime import date
 from math import isfinite
 import re
@@ -11,11 +13,13 @@ DATASET_VERSION = "F1_SIGNAL_V2"
 EXPECTED_DEVICES = 20000
 MODEL_VERSION_PATTERN = r"V([2-9]|[1-9][0-9]+)"
 
+# 日次マートに存在する最初と最後の視聴日を1行で返し、画面の日付選択範囲に使います。
 BOUNDS_SQL = f"""
 SELECT MIN(VIEW_DATE) AS DATE_MIN, MAX(VIEW_DATE) AS DATE_MAX
 FROM {COMMON_TABLE}
 """
 
+# 予測テーブル全体の行数・端末数・不正行数と、閾値／モデル／データセットの統一状況を1行で返します。
 PREDICTION_HEALTH_SQL = f"""
 SELECT COUNT(*) AS ROW_COUNT,
        COUNT(DISTINCT DEVICE_ID) AS DEVICE_COUNT,
@@ -42,6 +46,7 @@ SELECT COUNT(*) AS ROW_COUNT,
 FROM {PREDICTIONS_TABLE}
 """
 
+# リーチは端末IDの重複を除いた数、時間と回数は日次マートの合計です。人数や確認済みの世帯数ではありません。
 AGGREGATES = """
 COUNT(DISTINCT DEVICE_ID) AS DISTINCT_REACH,
 COALESCE(SUM(VIEW_MINUTES), 0) AS TOTAL_MINUTES,
@@ -57,6 +62,7 @@ GROUPS = {
 
 
 def viewing_filter(start_date, end_date, networks):
+    """期間と局を確認し、共通の絞り込み条件とバインド値の組を返します。"""
     if not isinstance(start_date, date) or not isinstance(end_date, date):
         raise ValueError("開始日と終了日を指定してください。")
     if start_date > end_date:
@@ -64,12 +70,14 @@ def viewing_filter(start_date, end_date, networks):
     selected = tuple(dict.fromkeys(networks))
     if not selected or any(network not in NETWORKS for network in selected):
         raise ValueError("NW01 から NW05 の局を1つ以上選んでください。")
+    # 選択値はSQLへ直接埋め込まず、?に別引数で渡すことで値とSQLの構文を分離します。
     placeholders = ", ".join("?" for network in selected)
     predicate = f"VIEW_DATE BETWEEN ? AND ? AND NETWORK_ID IN ({placeholders})"
     return predicate, (start_date.isoformat(), end_date.isoformat(), *selected)
 
 
 def aggregate_query(group, start_date, end_date, networks):
+    """選択期間・局のリーチ、時間、回数を、全体または日／局／ジャンル別に返すSQLと値を作ります。"""
     columns = GROUPS[group]
     predicate, params = viewing_filter(start_date, end_date, networks)
     dimensions = ", ".join(columns)
@@ -83,6 +91,9 @@ def aggregate_query(group, start_date, end_date, networks):
 
 
 def prediction_query(start_date, end_date, networks):
+    """対象端末の予測分布と全件の検証値を、同じSQL結果で返すためのSQLと値を作ります。"""
+    # 別々に取得すると更新前後のデータが混ざるため、検証と表示を同じSQLにまとめます。
+    # 期間と局は視聴実績から対象端末を選ぶ条件であり、学習期間や予測日時の絞り込みではありません。
     predicate, params = viewing_filter(start_date, end_date, networks)
     return f"""
 WITH selected_devices AS (
@@ -134,10 +145,12 @@ ORDER BY PREDICTION_GROUP, PROBABILITY_BIN, MODEL_NAME, MODEL_VERSION
 
 
 class PredictionValidationError(ValueError):
+    """検証に合わない予測をゼロ件と誤表示せず、予測の表示を止めるための例外です。"""
     pass
 
 
 def validate_prediction_snapshot(result):
+    """SQL結果を検証し、保存閾値と表示用の表を返します。予測テーブルが空ならNoneと空の表を返します。"""
     health_columns = (
         "ROW_COUNT", "HEALTH_DEVICE_COUNT", "INVALID_COUNT", "THRESHOLD_COUNT",
         "PREDICTION_THRESHOLD", "MODEL_VERSION_COUNT", "HEALTH_MODEL_VERSION",
@@ -156,6 +169,7 @@ def validate_prediction_snapshot(result):
     if health["ROW_COUNT"] == 0:
         return None, result.iloc[:0]
     threshold = health["PREDICTION_THRESHOLD"]
+    # 対象の20,000端末がそろい、予測値が有効で、保存閾値とモデル情報が全件で統一されているかを確認します。
     if (
         health[list(health_columns)].isna().any()
         or health["ROW_COUNT"] != EXPECTED_DEVICES
@@ -176,6 +190,7 @@ def validate_prediction_snapshot(result):
             "F1_SIGNAL_V2、単一のV2以降のモデルバージョン、単一の有限な閾値（0〜1）が必要です。"
             "V1や旧形式は第3章で再推論・保存してから再読込してください。"
         )
+    # 全件検証に通った後も、表示する分布の合計が選択された端末数と一致することを確認します。
     predictions = result.loc[result["DEVICE_COUNT"].notna(), list(display_columns)].copy()
     counts = predictions["DEVICE_COUNT"]
     if (
@@ -193,6 +208,7 @@ def validate_prediction_snapshot(result):
 
 
 def minute_query(view_date, networks):
+    """選んだ1日・局の分内視聴端末数を時刻順に返すSQLとバインド値を作ります。"""
     predicate, params = viewing_filter(view_date, view_date, networks)
     return (
         f"SELECT NETWORK_ID, VIEW_DATE, MINUTE_AT, VIEWING_DEVICES FROM {MINUTE_TABLE} "
@@ -202,6 +218,7 @@ def minute_query(view_date, networks):
 
 
 def unavailable_object(error):
+    """テーブル未作成や参照権限不足を示すエラーかを判定し、他のSQL失敗と区別します。"""
     return (
         str(getattr(error, "sql_error_code", "")).lstrip("0") in {"2003", "2043"}
         or getattr(error, "sqlstate", None) == "42S02"

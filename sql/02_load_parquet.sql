@@ -1,6 +1,11 @@
--- 01_setup.sqlの後に実行。固定データコミットを取得できなければ停止する。
--- 同じリリースの再実行だけ許可。旧データは自動移行・削除しない。
--- 移行が必要な場合は管理者が承認済みのバックアップ付き移行手順を実施する。
+-- 目的: 固定コミットのParquetファイル8個を確認し、教材のRAWテーブルに取り込みます。
+-- 前提: 01_setup.sqlが完了し、最後のLISTで8個のファイルを確認できていること。
+-- 実行方法: 同じハンズオン用アカウントで上から順に実行します。
+-- EXECUTE IMMEDIATE $$から対応する$$;までは1つの処理です。途中だけを選択して実行しないでください。
+-- 完了の目安: 最後の結果にF1_SIGNAL_V2の8行が表示され、各ROW_COUNTが下のEXPECTED_ROWSと一致します。
+-- 再実行できるのは同じ版・同じ内容のデータだけです。旧データは自動移行・削除しません。
+-- 移行が必要な場合は作業を止めて講師に相談し、管理者が承認済みのバックアップ付き手順を実施します。
+-- 読取エラー時は表示内容を確認し、mainや以前のステージファイルへ切り替えて続行しないでください。
 USE ROLE BCAST_PLATFORM_ENGINEER_ROLE;
 USE SECONDARY ROLES NONE;
 USE DATABASE BCAST_PLATFORM_HANDSON;
@@ -9,6 +14,8 @@ USE WAREHOUSE BCAST_PLATFORM_COMMON_WH;
 
 EXECUTE IMMEDIATE $$
 DECLARE
+  -- 既存データの保護のため、表の構造・データの版・ファイル・予測結果・同時実行を確認します。
+  -- エラーは確認を省略して進める合図ではありません。内容を講師に伝え、原因を確認してください。
   incompatible_schema EXCEPTION (-20001, 'RAW schema mismatch. Stop; use approved backup-first migration, not a database reset.');
   incompatible_data EXCEPTION (-20002, 'Existing RAW data is unversioned, changed, or a different release. No overwrite authorized. Ask the maintainer to perform an approved backup-first migration, then rerun setup/load.');
   incompatible_files EXCEPTION (-20003, 'F1_SIGNAL_V2 requires all eight commit-pinned files, exact row counts, consistent per-load file keys and valid F1 labels. Do not fall back to main or old stage files.');
@@ -36,6 +43,8 @@ DECLARE
   manifest_table VARCHAR;
   load_time TIMESTAMP_NTZ DEFAULT SYSDATE();
 BEGIN
+  -- 実行ごとに異なる名前の一時テーブルを使い、確認が終わるまで既存のRAWデータに触れません。
+  -- 下の一覧は、取り込む8ファイルの名前・期待件数・列の対応です。
   snapshots_prefix := 'BCAST_PLATFORM_HANDSON.RAW.LOAD_' || load_id || '_';
   manifest_table := snapshots_prefix || 'MANIFEST';
   definitions_table := snapshots_prefix || 'DEFINITIONS';
@@ -66,6 +75,7 @@ BEGIN
       ('PROGRAM_SCHEDULE', 'program_schedule.parquet', 8747,
        'PROGRAM_ID, NETWORK_ID, AIR_DATE, AIR_FROM, AIR_TO',
        '$1:PROGRAM_ID::VARCHAR, $1:NETWORK_ID::VARCHAR, $1:AIR_DATE::DATE, $1:AIR_FROM::TIMESTAMP_NTZ, $1:AIR_TO::TIMESTAMP_NTZ');
+  -- 取込先の列名と型が教材の定義どおりかを確認します。異なる場合はロード前に停止します。
   WITH expected AS (
     SELECT 'VIEWING_LOG_' || station.COLUMN1 AS TABLE_NAME,
            definition.COLUMN1 AS COLUMN_NAME, definition.COLUMN2 AS DATA_TYPE
@@ -100,6 +110,9 @@ BEGIN
     RAISE incompatible_schema;
   END IF;
 
+  -- FETCHは必須です。取得後、固定コミットから8個すべてを内部ステージへコピーします。
+  -- commits/<固定コミットID>/data/はGitの仮想的なスナップショット参照で、実フォルダー名ではありません。
+  -- 固定コミットIDを変更したり、読取エラーを避けるためにbranches/mainへ置き換えたりしないでください。
   ALTER GIT REPOSITORY BCAST_PLATFORM_HANDSON.INTEGRATIONS.BCAST_PLATFORM_REPO FETCH;
   COPY FILES INTO @BCAST_PLATFORM_HANDSON.INTEGRATIONS.BCAST_PLATFORM_RAW_STAGE/F1_SIGNAL_V2/
     FROM @BCAST_PLATFORM_HANDSON.INTEGRATIONS.BCAST_PLATFORM_REPO/commits/8a6f0cc234b30c3b54a4a63d68890bb7cb9f8887/data/
@@ -112,6 +125,8 @@ BEGIN
   IF (file_count != 8) THEN
     RAISE incompatible_files;
   END IF;
+  -- 各ファイルを一時テーブルへ読み、列・件数・ファイル内容の識別値を照合します。
+  -- 検証結果は一時的な管理表にまとめ、全ファイルがそろったことを後で確認します。
   CREATE TEMPORARY TABLE IDENTIFIER(:manifest_table)
     LIKE BCAST_PLATFORM_HANDSON.RAW.DATASET_RELEASE_FILES;
   pass_count := 0;
@@ -154,6 +169,7 @@ BEGIN
     EXECUTE IMMEDIATE :statement USING (load_time);
     pass_count := pass_count + 1;
   END FOR;
+  -- 8ファイルと視聴ログ合計1,050,648行がそろっていることを確認します。
   SELECT COUNT(*) INTO :manifest_count FROM IDENTIFIER(:manifest_table);
   IF (pass_count != 8 OR manifest_count != 8) THEN
     RAISE incompatible_files;
@@ -161,6 +177,7 @@ BEGIN
   IF (viewing_rows != 1050648) THEN
     RAISE incompatible_files;
   END IF;
+  -- 端末20,000台のうち、正解ラベルを使える2,000台だけに0/1が入り、残りはNULLであることを確認します。
   snapshot_table := snapshots_prefix || 'DEVICE_LABELS';
   SELECT COUNT(DISTINCT DEVICE_ID), COUNT_IF(LABEL_AVAILABLE), COUNT_IF(
       DEVICE_ID IS NULL OR NOT REGEXP_LIKE(DEVICE_ID, 'C[0-9]{6}')
@@ -172,6 +189,7 @@ BEGIN
   IF (unique_devices != 20000 OR panel_rows != 2000 OR invalid_rows > 0) THEN
     RAISE incompatible_files;
   END IF;
+  -- 局別ログの端末ID・局コード・視聴開始日時が教材の範囲内であることを確認します。
   FOR station IN 1 TO 5 DO
     snapshot_table := snapshots_prefix || 'VIEWING_LOG_NW0' || station;
     SELECT COUNT(*) INTO :invalid_rows FROM IDENTIFIER(:snapshot_table)
@@ -185,12 +203,15 @@ BEGIN
     END IF;
   END FOR;
 
+  -- ここからは複数表への変更をまとめて確定するトランザクションです。
+  -- 管理用の1行を更新して取込同士の競合を防ぎます。セットアップや移行を並行して実行しないでください。
   BEGIN
     BEGIN TRANSACTION;
     UPDATE BCAST_PLATFORM_HANDSON.RAW.DATASET_LOAD_LOCK SET LAST_LOADER = :load_id WHERE LOCK_ID = 1;
     IF (SQLROWCOUNT != 1) THEN
       RAISE lock_failed;
     END IF;
+    -- 再ロード前に、記録済みの版・ファイル名・件数・内容の照合値が今回のデータと一致するか調べます。
     SELECT COUNT(*) INTO :metadata_count FROM BCAST_PLATFORM_HANDSON.RAW.DATASET_RELEASE_FILES;
     SELECT COUNT(*) INTO :invalid_rows
     FROM BCAST_PLATFORM_HANDSON.RAW.DATASET_RELEASE_FILES AS old
@@ -202,6 +223,8 @@ BEGIN
     IF (metadata_count != 0 AND (metadata_count != 8 OR invalid_rows > 0)) THEN
       RAISE incompatible_data;
     END IF;
+    -- 管理記録のない既存データや、ロード後に変更されたRAWデータは上書きせず停止します。
+    -- 再ロード時のエラーは、別の教材データや参加者の変更を守るためのものです。削除で回避しないでください。
     pass_count := 0;
     definitions := (SELECT * FROM IDENTIFIER(:definitions_table) ORDER BY TABLE_NAME);
     FOR definition IN definitions DO
@@ -227,6 +250,7 @@ BEGIN
     IF (pass_count != 8) THEN
       RAISE incompatible_data;
     END IF;
+    -- 予測結果が既にある場合は、今回と同じ版のデータから作られた記録があることを確認します。
     SELECT COUNT(*) INTO :prediction_tables FROM BCAST_PLATFORM_HANDSON.INFORMATION_SCHEMA.TABLES
       WHERE TABLE_SCHEMA = 'ML' AND TABLE_NAME = 'PREDICTIONS';
     IF (prediction_tables > 0) THEN
@@ -247,6 +271,8 @@ BEGIN
         END IF;
       END IF;
     END IF;
+    -- すべての事前確認を通過した場合だけ、8表の内容を確認済みの一時テーブルから入れ直します。
+    -- DELETEを含むため、この部分だけを切り出して実行しないでください。
     pass_count := 0;
     definitions := (SELECT * FROM IDENTIFIER(:definitions_table) ORDER BY TABLE_NAME);
     FOR definition IN definitions DO
@@ -261,6 +287,7 @@ BEGIN
     IF (pass_count != 8) THEN
       RAISE incompatible_data;
     END IF;
+    -- 書込後にも件数と内容の照合値を確認し、途中でデータが欠けていないか調べます。
     pass_count := 0;
     definitions := (SELECT * FROM IDENTIFIER(:definitions_table) ORDER BY TABLE_NAME);
     FOR definition IN definitions DO
@@ -280,6 +307,7 @@ BEGIN
     IF (pass_count != 8) THEN
       RAISE incompatible_data;
     END IF;
+    -- 8表の確認後、取込記録も更新してまとめて確定します。
     DELETE FROM BCAST_PLATFORM_HANDSON.RAW.DATASET_RELEASE_FILES;
     INSERT INTO BCAST_PLATFORM_HANDSON.RAW.DATASET_RELEASE_FILES SELECT * FROM IDENTIFIER(:manifest_table);
     IF (SQLROWCOUNT != 8) THEN
@@ -288,9 +316,12 @@ BEGIN
     COMMIT;
   EXCEPTION
     WHEN OTHER THEN
+      -- このトランザクション内で失敗した場合は表への変更を取り消し、元のエラーを表示します。
+      -- ステージへコピー済みのファイルは取り消し対象ではありません。
       ROLLBACK;
       RAISE;
   END;
+  -- 確定後、今回の確認に使った一時テーブルだけを片付けます。
   pass_count := 0;
   definitions := (SELECT * FROM IDENTIFIER(:definitions_table) ORDER BY TABLE_NAME);
   FOR definition IN definitions DO
@@ -306,5 +337,6 @@ BEGIN
 END;
 $$;
 
+-- 8行の取込記録を確認します。途中でエラーが出た場合、記録が表示されても今回の成功とは判断しないでください。
 SELECT DATASET_VERSION, TABLE_NAME, FILE_NAME, FILE_CONTENT_KEY, ROW_COUNT, ROW_FINGERPRINT, LOADED_AT
 FROM BCAST_PLATFORM_HANDSON.RAW.DATASET_RELEASE_FILES ORDER BY TABLE_NAME;

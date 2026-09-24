@@ -1,3 +1,5 @@
+# アプリ用のPythonとライブラリをSnowflakeチャネルから用意します。dbtや学習用Notebookの実行環境とは別です。
+# Streamlitは画面、pandasは取得後の表の整形、SnowparkはSQLの実行と結果取得に使います。
 name: bcast-platform-streamlit
 channels:
   - snowflake

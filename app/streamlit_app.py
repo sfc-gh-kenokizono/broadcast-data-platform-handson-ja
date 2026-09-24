@@ -1,3 +1,5 @@
+"""共通マートの視聴実績、検証済みのF1同居予測、局別の分内視聴端末数を表示します。"""
+
 import pandas as pd
 import streamlit as st
 from snowflake.snowpark.exceptions import SnowparkSQLException, SnowparkSessionException
@@ -21,13 +23,16 @@ st.caption("合成データによる教材です。リーチの単位は端末�
 
 @st.cache_data(ttl=60, max_entries=64, show_spinner=False)
 def query(sql, params=()):
+    """SQLとバインド値をSnowflakeへ渡し、結果をpandasの表で返します。同じ入力の結果は最大60秒再利用します。"""
     connection = st.connection("snowflake")
     return connection.session().sql(sql, params=list(params)).to_pandas()
 
 
+# 再読込では取得結果のキャッシュを消し、次の問い合わせでデータを取り直します。
 if st.sidebar.button("再読込"):
     query.clear()
 
+# 日次マートの日付範囲を取得します。接続エラー・SQL失敗・空テーブルは区別して表示を止めます。
 try:
     bounds = query(BOUNDS_SQL).iloc[0]
 except SnowparkSessionException:
@@ -65,6 +70,7 @@ if date_from > date_to:
 st.caption(f"視聴期間: {date_from} ～ {date_to} ／ 放送局: {', '.join(selected_networks)}")
 counts_tab, predictions_tab, minute_tab = st.tabs(["視聴実績・推移", "F1同居の予測", "分内視聴端末数"])
 
+# 集計はSnowflakeで行い、画面では集計済みの数値を表示します。リーチは集計単位ごとに重複除外した端末数です。
 with counts_tab:
     try:
         summary = query(*aggregate_query("summary", date_from, date_to, selected_networks)).iloc[0]
@@ -77,6 +83,7 @@ with counts_tab:
             sessions_column.metric("総視聴回数", f"{int(summary['TOTAL_SESSIONS']):,}")
             daily = query(*aggregate_query("daily", date_from, date_to, selected_networks))
             daily["VIEW_DATE"] = pd.to_datetime(daily["VIEW_DATE"])
+            # 取得できなかった日を欠損のまま残し、「視聴ゼロ」と置き換えないようにします。
             daily = daily.set_index("VIEW_DATE").reindex(pd.date_range(date_from, date_to))
             daily.index.name = "視聴日"
             st.subheader("日別リーチ（選択局の重複を除く）")
@@ -97,6 +104,7 @@ with counts_tab:
     except SnowparkSQLException:
         st.error("視聴実績の集計に失敗しました。共通マートの列・権限・ウェアハウスを確認してください。")
 
+# 予測はチェックボックスが選ばれた場合だけ取得し、同じSQL結果の全件検証に通ってから分布を表示します。
 with predictions_tab:
     st.caption("F1は20〜34歳の女性です。テレビに対応する合成世帯のF1同居を予測します。予測ラベルは、モデルとともに保存した閾値以上を1とします。")
     st.caption("いま見ている人の属性、実際のF1視聴者数、人数、確認済みの世帯数ではありません。確率の合計もこれらの数にはなりません。")
@@ -157,6 +165,7 @@ with predictions_tab:
         except (ValueError, TypeError, KeyError, OverflowError):
             st.error("予測の検証結果の形式が不正です。第3章の出力・列定義を確認してください。予測は表示しません。")
 
+# 分別曲線は専用の日付を使います。局別の欠損をゼロ埋めせず、異なる局の端末数を足す合計線も作りません。
 with minute_tab:
     minute_date = st.date_input(
         "分別曲線の視聴日", value=date_from, min_value=date_min, max_value=date_max,
