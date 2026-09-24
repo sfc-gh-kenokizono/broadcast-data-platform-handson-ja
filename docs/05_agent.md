@@ -86,7 +86,7 @@ Semantic View（セマンティックビュー）は、指標と切り口の定�
 
 ### 操作
 
-1. Git Workspaceで [sql/04_semantic.sql](../sql/04_semantic.sql) を開きます。
+1. Git Workspaceで [sql/05_01_semantic.sql](../sql/05_01_semantic.sql) を開きます。
 2. 作成先が `BCAST_PLATFORM_HANDSON.MART.SV_VIEWING` であることを確認します。
 3. ロール・WHの選択、ビュー作成、閲覧ロールへの権限付与を順番に実行します。
 4. 後半の `DESCRIBE` と、2つの集計SQLを実行します。
@@ -114,7 +114,7 @@ Semantic View（セマンティックビュー）は、指標と切り口の定�
 GUIは、SQLではなく画面のフォームやボタンで設定する方法です。
 ここではSnowsightで作成します。
 
-**まだ [sql/05_agent.sql](../sql/05_agent.sql) を全選択実行しないでください。**
+**まだ [sql/05_02_agent.sql](../sql/05_02_agent.sql) を全選択実行しないでください。**
 先に画面でAgentを作り、設定・保存を済ませます。
 
 ### ① 名前と説明を設定する
@@ -181,7 +181,7 @@ UIにPublish／公開や版の選択がある場合は、今回設定した版�
 
 ### 設定が保存されたか確認する
 
-[sql/05_agent.sql](../sql/05_agent.sql) を開きます。
+[sql/05_02_agent.sql](../sql/05_02_agent.sql) を開きます。
 冒頭のロール・WH指定に続いて、GUIチェックポイントより後の `SHOW` と `DESCRIBE` を実行します。
 
 - `SHOW`：Agentの一覧を確認するSQL。
@@ -287,7 +287,7 @@ Analystの120秒とは別であり、GUIの既定値と代替SQLの実行結果�
 ## 補足：新規Agent作成の代替SQL
 
 GUIで作成できない場合に、講師と相談して使う方法です。
-**まだAgentを1つも作成していない場合だけ**、`sql/05_agent.sql` 末尾のコメント内の `CREATE AGENT` 文を選択実行します。
+**まだAgentを1つも作成していない場合だけ**、`sql/05_02_agent.sql` 末尾のコメント内の `CREATE AGENT` 文を選択実行します。
 コメントの囲み `/*` と `*/` は選択範囲へ含めません。
 
 GUIで途中まで作ったAgentがある場合は、このSQLを実行しません。

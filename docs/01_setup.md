@@ -15,7 +15,7 @@
 2. [GitHubで最初のSQLを開き](#1-最初のセットアップsqlを開く)、Snowsightに貼り付けます。GitHubリポジトリの新規作成は不要です。
 3. [SQL内の第1〜5節を実行](#2-専用環境とgit接続を作る)します。第5節がSnowflakeのGit Repositoryを作成します。
 4. 第5節の `LIST` が成功し、8個のParquetが見えたら、[Git Workspaceを作ります](#受講用git-workspaceを作る)。
-5. Workspaceで [sql/02_load_parquet.sql](../sql/02_load_parquet.sql)を開き、[検査・取込](#3-parquetをrawテーブルへ読み込む)と[結果確認](#動作確認)を行います。
+5. Workspaceで [sql/01_02_load_parquet.sql](../sql/01_02_load_parquet.sql)を開き、[検査・取込](#3-parquetをrawテーブルへ読み込む)と[結果確認](#動作確認)を行います。
 
 ## まず、登場するものを整理する
 
@@ -46,8 +46,8 @@ Snowflakeの内部ステージ
 | 対象 | いつ作る？ | 役割 |
 |---|---|---|
 | GitHubリポジトリ | 配布元として作成済み。受講者の新規作成は不要 | 教材コードとデータの配布元 |
-| Git API統合 `BCAST_PLATFORM_GIT_API` | `sql/01_setup.sql` 第3節 | この教材のGitHub URLへの接続を許可 |
-| SnowflakeのGit Repository `BCAST_PLATFORM_REPO` | `sql/01_setup.sql` 第5節 | SQLから配布ファイルを参照し、データを取り込むための接続先 |
+| Git API統合 `BCAST_PLATFORM_GIT_API` | `sql/01_01_setup.sql` 第3節 | この教材のGitHub URLへの接続を許可 |
+| SnowflakeのGit Repository `BCAST_PLATFORM_REPO` | `sql/01_01_setup.sql` 第5節 | SQLから配布ファイルを参照し、データを取り込むための接続先 |
 | 自分用のGit Workspace | 第5節の `LIST` 成功後、Snowsightで作成 | SQL・dbt・Notebook・アプリのファイルを開く作業場所 |
 
 **SQLで接続先を作っても、Git Workspaceは自動作成されません。** `LIST` で8ファイルを確認してから、下記の画面操作へ進みます。
@@ -73,7 +73,7 @@ Snowflakeの内部ステージ
 **まだGit Workspaceは不要です。**
 次のリンクから、ブラウザーでGitHubのSQLを開きます。
 
-[sql/01_setup.sql を開く](https://github.com/sfc-gh-kenokizono/broadcast-data-platform-handson-ja/blob/main/sql/01_setup.sql)
+[sql/01_01_setup.sql を開く](https://github.com/sfc-gh-kenokizono/broadcast-data-platform-handson-ja/blob/main/sql/01_01_setup.sql)
 
 講師から、このリンクの教材で開始してよいという案内を受けてから進めます。
 
@@ -87,7 +87,7 @@ Snowflakeの内部ステージ
 
 ## 2. 専用環境とGit接続を作る
 
-`01_setup.sql` には、次の処理が入っています。
+`01_01_setup.sql` には、次の処理が入っています。
 
 | SQL内の節 | 実行すると何ができる？ | 確認すること |
 |---|---|---|
@@ -127,7 +127,7 @@ Snowflakeの内部ステージ
 
 ## 受講用Git Workspaceを作る
 
-**`sql/01_setup.sql` 第5節の `LIST` が成功し、8個のParquetを確認してから**、教材を操作するWorkspaceを作ります。`LIST` が失敗した場合は、ここへ進まず講師へ確認してください。
+**`sql/01_01_setup.sql` 第5節の `LIST` が成功し、8個のParquetを確認してから**、教材を操作するWorkspaceを作ります。`LIST` が失敗した場合は、ここへ進まず講師へ確認してください。
 
 1. Snowsightで `BCAST_PLATFORM_ENGINEER_ROLE` を選びます。
 2. **Projects → Workspaces → From Git repository** を開きます。新規作成メニュー内にある場合もあります。
@@ -158,7 +158,7 @@ Workspace名を別の名前にした場合は、第2章のSQL内のWorkspace名�
 
 ## 3. ParquetをRAWテーブルへ読み込む
 
-Workspaceで [sql/02_load_parquet.sql](../sql/02_load_parquet.sql) を開きます。
+Workspaceで [sql/01_02_load_parquet.sql](../sql/01_02_load_parquet.sql) を開きます。
 **冒頭の接続設定、検査・取込ブロック、末尾の確認SQLに分けて実行します。**
 
 ### ① 接続先と実行単位を確認する

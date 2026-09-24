@@ -1,9 +1,9 @@
 -- 目的: GUIで作成する分析エージェントの設定を確認し、分析用ロールに利用権限を付与します。
--- 前提: 04_semantic.sqlが完了し、SV_VIEWINGの結果と元テーブルの集計が一致していること。
+-- 前提: 05_01_semantic.sqlが完了し、SV_VIEWINGの結果と元テーブルの集計が一致していること。
 -- GUI が主経路です。docs/05_agent.md と docs/agent_texts.md を先に開いてください。
 -- 実行方法: 全選択で実行しないでください。以下は対象教材環境で参加者が選択実行する手順です。
 -- 完了の目安: SHOW/DESCRIBEで対象Agentと設定を確認でき、GRANTが成功すること。
--- 続けてGUIで保存・公開を確認し、Playground/CoWorkの回答を04_semantic.sqlの同条件の結果と比較します。
+-- 続けてGUIで保存・公開を確認し、Playground/CoWorkの回答を05_01_semantic.sqlの同条件の結果と比較します。
 USE ROLE BCAST_PLATFORM_ENGINEER_ROLE;
 USE WAREHOUSE BCAST_PLATFORM_COMMON_WH;
 
@@ -15,7 +15,7 @@ SHOW AGENTS IN SCHEMA BCAST_PLATFORM_HANDSON.MART;
 DESCRIBE AGENT BCAST_PLATFORM_HANDSON.MART.VIEWING_AGENT;
 
 -- 3. 保存内容を確認後、ANALYSTにAgentの利用を許可します。所有者またはこのGRANTを行えるロールで実行します。
--- GRANTはGUIの保存・公開操作や回答テストの代わりにはなりません。成功後はGUIで同条件の3指標を質問し、04の値と比べます。
+-- GRANTはGUIの保存・公開操作や回答テストの代わりにはなりません。成功後はGUIで同条件の3指標を質問し、05_01_semantic.sqlの値と比べます。
 GRANT USAGE ON AGENT BCAST_PLATFORM_HANDSON.MART.VIEWING_AGENT
   TO ROLE BCAST_PLATFORM_ANALYST_ROLE;
 

@@ -375,7 +375,7 @@ EXECUTE DBT PROJECT FROM WORKSPACE USER$.PUBLIC."broadcast-data-platform-handson
 
 ### 統合結果を確認する
 
-[sql/03_check_common.sql](../sql/03_check_common.sql) を開き、区切って実行します。
+[sql/02_check_common.sql](../sql/02_check_common.sql) を開き、区切って実行します。
 
 | 確認 | 期待する結果 |
 |---|---|

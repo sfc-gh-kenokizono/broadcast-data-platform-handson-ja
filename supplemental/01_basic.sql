@@ -1,5 +1,5 @@
 -- 目的（任意）: ジャンル別の視聴指標と、重なる視聴区間をまとめるSQLの考え方を確認します。
--- 前提: 第2章のCOMMON作成とsql/03_check_common.sqlの確認が完了していること。
+-- 前提: 第2章のCOMMON作成とsql/02_check_common.sqlの確認が完了していること。
 -- 実行方法: ハンズオン用アカウントで上から順に実行してください。参照だけで、既存の表は変更しません。
 -- 完了の目安: ジャンル別の集計結果と、末尾の例でINPUT_ROWS=7、FOLDED_ROWS=3が表示されること。
 USE ROLE BCAST_PLATFORM_ENGINEER_ROLE;

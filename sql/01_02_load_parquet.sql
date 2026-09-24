@@ -1,5 +1,5 @@
 -- 目的: mainブランチのdataフォルダにあるParquetファイル8個を確認し、教材のRAWテーブルに取り込みます。
--- 前提: 01_setup.sqlが完了し、最後のLISTで8個のファイルを確認できていること。
+-- 前提: 01_01_setup.sqlが完了し、最後のLISTで8個のファイルを確認できていること。
 -- 実行方法: 同じハンズオン用アカウントで上から順に実行します。
 -- EXECUTE IMMEDIATE $$から対応する$$;までは1つの処理です。途中だけを選択して実行しないでください。
 -- 完了の目安: 最後の結果にF1_SIGNAL_V2の8行が表示され、各ROW_COUNTが下のEXPECTED_ROWSと一致します。
@@ -20,7 +20,7 @@ DECLARE
   -- 既存データの保護のため、表の構造・データの版・ファイル・予測結果・同時実行を確認します。
   -- エラーは確認を省略して進める合図ではありません。内容を講師に伝え、原因を確認してください。
   incompatible_schema EXCEPTION (-20001, '取込先テーブルの列名または型が教材と一致しません。ここで作業を止め、既存データを削除・上書きせずに講師へ確認してください。');
-  incompatible_data EXCEPTION (-20002, '既にあるデータが、この教材の版と一致しません。上書きは行いません。作業を止めて講師に連絡し、管理者が承認したバックアップ付きの手順を実施してから、01_setup.sqlと02_load_parquet.sqlをやり直してください。');
+  incompatible_data EXCEPTION (-20002, '既にあるデータが、この教材の版と一致しません。上書きは行いません。作業を止めて講師に連絡し、管理者が承認したバックアップ付きの手順を実施してから、01_01_setup.sqlと01_02_load_parquet.sqlをやり直してください。');
   incompatible_files EXCEPTION (-20003, '教材のファイル8個、想定の行数、有効なラベルを確認できませんでした。別のブランチや以前のファイルへ切り替えず、作業を止めて講師に確認してください。');
   stale_predictions EXCEPTION (-20005, '既にある予測結果が、この教材データから作られたものか確認できません。作業を止めて講師に確認してください。予測結果を消して進めないでください。');
   lock_failed EXCEPTION (-20006, '取込の重複を防ぐ管理情報が想定と異なります。作業を止めて講師に確認してください。セットアップや取込を同時に実行しないでください。');
@@ -79,7 +79,7 @@ BEGIN
       ('PROGRAM_SCHEDULE', 'program_schedule.parquet', 8747,
        'PROGRAM_ID, NETWORK_ID, AIR_DATE, AIR_FROM, AIR_TO',
        '$1:PROGRAM_ID::VARCHAR, $1:NETWORK_ID::VARCHAR, $1:AIR_DATE::DATE, $1:AIR_FROM::TIMESTAMP_NTZ, $1:AIR_TO::TIMESTAMP_NTZ');
-  -- 2. 受け皿の検査: expectedは教材が必要とする列、actualは01で作った実際の列です。
+  -- 2. 受け皿の検査: expectedは教材が必要とする列、actualは01_01_setup.sqlで作った実際の列です。
   -- FULL OUTER JOINで不足列と余分な列の両方を探し、型の相違も数えます。相違0ならファイル取得へ進みます。
   WITH expected AS (
     SELECT 'VIEWING_LOG_' || station.COLUMN1 AS TABLE_NAME,

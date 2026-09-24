@@ -20,14 +20,14 @@ GitHubの教材は用意済みです。**自分でGitHubリポジトリを作る
 | 順番 | 操作 | 次へ進む条件 |
 |---|---|---|
 | 1 | [実行前の確認](docs/01_setup.md#実行前の確認)を読む | 演習用アカウントと管理者の案内を確認 |
-| 2 | [sql/01_setup.sql](https://github.com/sfc-gh-kenokizono/broadcast-data-platform-handson-ja/blob/main/sql/01_setup.sql)をSnowsightへ貼り付け、第1〜5節を実行 | 第5節の `LIST` が成功し、8個のParquetが見える |
+| 2 | [sql/01_01_setup.sql](https://github.com/sfc-gh-kenokizono/broadcast-data-platform-handson-ja/blob/main/sql/01_01_setup.sql)をSnowsightへ貼り付け、第1〜5節を実行 | 第5節の `LIST` が成功し、8個のParquetが見える |
 | 3 | [Git Workspaceを作る](docs/01_setup.md#受講用git-workspaceを作る) | `main` の教材ファイルが開ける |
-| 4 | Workspaceで [sql/02_load_parquet.sql](sql/02_load_parquet.sql)を開き、第1章に沿って実行 | 検査・取込ブロックが成功し、末尾SELECTの版記録8件・件数が一致 |
+| 4 | Workspaceで [sql/01_02_load_parquet.sql](sql/01_02_load_parquet.sql)を開き、第1章に沿って実行 | 検査・取込ブロックが成功し、末尾SELECTの版記録8件・件数が一致 |
 
 | Gitに関係するもの | いつ用意する？ | 用途 |
 |---|---|---|
 | GitHubリポジトリ | 配布元として作成済み | 教材コードとデータの配布 |
-| SnowflakeのGit Repository `BCAST_PLATFORM_REPO` | `sql/01_setup.sql` 第5節が作成 | SQLからデータを読み込むための接続先 |
+| SnowflakeのGit Repository `BCAST_PLATFORM_REPO` | `sql/01_01_setup.sql` 第5節が作成 | SQLからデータを読み込むための接続先 |
 | 自分用のGit Workspace | 第5節の `LIST` 成功後、Snowsightで作成 | SQL・dbt・Notebook・アプリのファイルを開く作業場所 |
 
 取込元は `main` の `/branches/main/data/`、データ版は引き続き `F1_SIGNAL_V2` です。`main` は更新可能なので、**ドライラン中は配布元のデータを変更しません。** 取得できない場合は停止し、講師へ確認します。
@@ -155,6 +155,8 @@ GitHubの教材は用意済みです。**自分でGitHubリポジトリを作る
 - **対象外**：DCR、外部モデルファイルの持ち込み、高度な自動再学習。
 
 ## フォルダの見方
+
+`sql/`の先頭の番号は章番号です。同じ章で2本使う場合は、`01_01_setup.sql` → `01_02_load_parquet.sql` のように章内の順番も付けています。第3・4章はNotebookとアプリを使うため、対応するSQLファイルはありません。
 
 | フォルダ | 入っているもの | 使う場面 |
 |---|---|---|

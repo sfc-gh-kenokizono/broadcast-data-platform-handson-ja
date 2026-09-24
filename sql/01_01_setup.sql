@@ -146,7 +146,7 @@ USE SCHEMA BCAST_PLATFORM_HANDSON.RAW;
 USE WAREHOUSE BCAST_PLATFORM_COMMON_WH;
 
 -- 視聴ログの1行は、ある端末の視聴開始から終了までの区間です。局・端末・時間・開始時のジャンルを保持します。
--- このCREATEは列名と型を決めるだけです。初回は空の表ができ、02のロードで初めて行が入ります。
+-- このCREATEは列名と型を決めるだけです。初回は空の表ができ、01_02_load_parquet.sqlで初めて行が入ります。
 CREATE TABLE IF NOT EXISTS BCAST_PLATFORM_HANDSON.RAW.VIEWING_LOG_NW01 (
   EVENT_ID VARCHAR,
   NETWORK_ID VARCHAR,
@@ -192,7 +192,7 @@ CREATE TABLE IF NOT EXISTS BCAST_PLATFORM_HANDSON.RAW.PROGRAM_SCHEDULE (
   AIR_TO TIMESTAMP_NTZ
 );
 
--- 以下2表は学習用データではなく、02が再実行の安全性を自動確認するための管理表です。参加者は直接編集しません。
+-- 以下2表は学習用データではなく、01_02_load_parquet.sqlが再実行の安全性を自動確認するための管理表です。参加者は直接編集しません。
 -- DATASET_RELEASE_FILESは取込済みの版・行数・内容の照合値を記録し、同じデータを再利用できるかの比較に使います。
 CREATE TABLE IF NOT EXISTS BCAST_PLATFORM_HANDSON.RAW.DATASET_RELEASE_FILES (
   DATASET_VERSION VARCHAR NOT NULL,
@@ -222,7 +222,7 @@ CREATE FILE FORMAT IF NOT EXISTS BCAST_PLATFORM_HANDSON.INTEGRATIONS.BCAST_PLATF
   USE_VECTORIZED_SCANNER = TRUE
   BINARY_AS_TEXT = FALSE;
 -- STAGEはファイルの置き場、RAWのTABLEは読み取った行の格納先です。WHはその読取・書込を計算します。
--- 作成成功時点では置き場と読取設定ができただけです。02でファイルを置いてから表へ読み込みます。
+-- 作成成功時点では置き場と読取設定ができただけです。01_02_load_parquet.sqlでファイルを置いてから表へ読み込みます。
 CREATE STAGE IF NOT EXISTS BCAST_PLATFORM_HANDSON.INTEGRATIONS.BCAST_PLATFORM_RAW_STAGE
   FILE_FORMAT = (FORMAT_NAME = 'BCAST_PLATFORM_HANDSON.INTEGRATIONS.BCAST_PLATFORM_PARQUET');
 
@@ -233,10 +233,10 @@ CREATE STAGE IF NOT EXISTS BCAST_PLATFORM_HANDSON.INTEGRATIONS.BCAST_PLATFORM_RA
 -- branches/main/data/は、取得したmainブランチのdataフォルダを指します。LISTは一覧表示だけで、取込は行いません。
 -- Parquetが8個（局別ログ5、番組マスタ1、放送予定1、ラベル1）あることを確認します。
 -- FETCH・LIST・ファイル読取でエラーが出たら、表示内容を確認して講師に連絡してください。
--- 8ファイルを確認できたら、第1章に沿ってGit Workspaceを作り、その中で02_load_parquet.sqlを開きます。
+-- 8ファイルを確認できたら、第1章に沿ってGit Workspaceを作り、その中で01_02_load_parquet.sqlを開きます。
 -- ============================================
 -- このGIT REPOSITORYはSQLが参照するSnowflake内のGitコピーです。SQL等を開いて編集するGit Workspaceとは別です。
--- FETCHはそのコピーを更新します。02の取込元はbranches/main/data/なので、Workspace内の未反映の編集は読みません。
+-- FETCHはそのコピーを更新します。01_02_load_parquet.sqlの取込元はbranches/main/data/なので、Workspace内の未反映の編集は読みません。
 CREATE GIT REPOSITORY IF NOT EXISTS BCAST_PLATFORM_HANDSON.INTEGRATIONS.BCAST_PLATFORM_REPO
   API_INTEGRATION = BCAST_PLATFORM_GIT_API
   ORIGIN = 'https://github.com/sfc-gh-kenokizono/broadcast-data-platform-handson-ja.git';
