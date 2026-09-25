@@ -9,7 +9,7 @@
 | 順番 | どこを開く | 正確な操作 | 成功の合図 |
 |---:|---|---|---|
 | 1 | SnowsightのGit Workspace | `notebooks/03_mlops.ipynb` を作成または開く | Notebookのセルが表示される |
-| 2 | Notebook上部の接続メニュー | Python 3.11、CPU runtime `V2.2-CPU-PY3.11`、講師指定のCPU用compute pool、Idle timeout 15分を選ぶ | 接続済みになり、5パッケージの版が表示される |
+| 2 | Notebook上部の接続メニュー | CPU、Python 3.12、runtime `v2.10`、`SYSTEM_COMPUTE_POOL_CPU (CPU_X64_S)`、Idle timeout 24時間を選ぶ | 接続済みになり、環境確認セルでPythonと5パッケージの版が表示される |
 | 3 | Notebook | `SAVE_RESULTS = False` のまま、上から1セルずつ実行する | TRAIN / VALID / TESTが1,200 / 400 / 400台になる |
 | 4 | 評価セル | TESTの評価値と混同行列を確認する | 参考値に近く、閾値が0.46と表示される |
 | 5 | 登録セル | 未使用の版でモデルを登録し、`show_functions()` を確認する | `TV_F1_PRESENCE_MODEL` と版、`predict_proba` が確認できる |
@@ -23,14 +23,18 @@
 
 | 設定 | 選ぶ値 |
 |---|---|
-| Python | 3.11 |
-| runtime | CPU版 `V2.2-CPU-PY3.11`（Container Runtime 2.2） |
-| compute pool | 講師指定のNotebook用CPU pool。GPUは使わない |
-| Idle timeout | 15分 |
+| Compute type | CPU |
+| Python | 3.12 |
+| runtime | `v2.10` |
+| Artifact repository | 画面に表示されるSnowflake管理のPyPI repository |
+| compute pool | `SYSTEM_COMPUTE_POOL_CPU (CPU_X64_S)` |
+| Idle timeout | 24時間（演習後に手動でSuspendする） |
 | 実行ロール | `BCAST_PLATFORM_ENGINEER_ROLE` |
 | Query warehouse | `BCAST_PLATFORM_COMMON_WH` |
 
-特徴量の集計と登録モデルの推論はWH、学習はNotebookのPython環境で動きます。共通WHだけではNotebookのPythonは動きません。サービス作成時の待機タイムアウトは15分を選び、選べない場合や指定runtimeが表示されない場合は、別の版や管理者ロールへ自己判断で切り替えず講師へ確認します。新しい演習アカウントのWorkspace画面で同じ環境を選んで最後まで進めることは未確認です。
+特徴量の集計と登録モデルの推論はWH、学習はNotebookのPython環境で動きます。共通WHだけではNotebookのPythonは動きません。接続画面では上表の値を選び、**Create and connect** を押します。サービス名は自動入力された値のままで構いません。Custom image、GPU、External Access Integrationは使いません。
+
+Python 3.12はSnowflake Notebooksのサポート対象です。runtime `v2.10` はPythonとは別に選ぶNotebook実行環境の版で、この画面で選べる値を使用します。接続後の環境確認セルとNotebook先頭セルで必要なパッケージを実際に読み込めることを確認します。
 
 接続後、一時的なPythonセルで次を実行します。
 
@@ -46,7 +50,7 @@ for package in (
     print(f"{package}: {version(package)}")
 ```
 
-Python 3.11と5パッケージの版がエラーなく表示されれば成功です。Snowflake側の動作実績では `snowflake-ml-python` は1.23.0でした。scikit-learnはSnowflake側の検証済み固定値を案内していません。ローカル評価の1.5.1をSnowflake側の実績として扱わないでください。パッケージがない、または版が案内と違う場合は最新版を追加せず、表示内容を講師へ伝えて停止します。`app/environment.yml` は第4章専用です。
+Python 3.12と5パッケージの版がエラーなく表示されれば成功です。表示された版は確認用であり、特定の版番号との完全一致は求めません。パッケージが見つからない場合は追加インストールせず、その画面を講師と確認します。`app/environment.yml` は第4章専用です。
 
 確認セルは削除して構いません。教材の設定セルへ戻り、`SAVE_RESULTS = False` のまま上から実行します。サービスを再開した場合は変数や追加パッケージが消えるため、環境を再確認して先頭から実行します。画面操作は[Notebookの計算環境の設定](https://docs.snowflake.com/en/user-guide/ui-snowsight/notebooks-in-workspaces/notebooks-in-workspaces-compute-setup)を参照してください。既存の教材データがある場合は、[第1章の注意](01_setup.md#実行前の確認)に従います。
 
