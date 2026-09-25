@@ -1,313 +1,154 @@
 # 第5章 視聴実績を日本語で質問する
 
-第4章では、用意した画面で期間や放送局を選びました。
-この章では、**「2026年5月から7月の全5局のリーチを教えて」**と日本語で質問できるようにします。
+この章では、視聴実績の指標をSemantic Viewに定義し、その定義だけを使うAgentをGUIで作ります。最後にPlaygroundとCoWorkで、直接SQLと同じ結果になることを確認します。
 
-ただし、AIへテーブルを渡すだけでは「リーチの数え方」まで正しく伝わるとは限りません。
-そこで、まず指標の意味を定義し、それを使うAgentを作ります。
+**このAgentは合成視聴実績専用です。第3章のF1在籍予測や文章検索は接続しません。**
 
-**このAgentが答えるのは合成データの視聴実績です。第3章のF1在籍予測は接続しません。**
-文章検索も使わないため、補足のCortex Searchを作る必要はありません。
+## 完了までの流れ
 
-## 3つの役割を理解する
-
-| 役割 | 何をする？ | この教材で作る・使うもの |
+| どこ | 操作 | 成功 |
 |---|---|---|
-| 指標の定義 | 「リーチ＝重複なしの端末数」などの計算ルールを定める | Semantic View `SV_VIEWING` |
-| 質問を受ける担当 | 質問に合わせて分析ツールを使い、回答する | Cortex Agent `VIEWING_AGENT` |
-| 会話する画面 | 利用者がAgentを選んで日本語を入力する | CoWork |
-
-Agentが数値を調べるときには、**Cortex Analyst**という分析ツールを使います。
-Cortex Analystは指標の定義をもとにSQLを作り、データの集計につなげます。
+| Git Workspace | `sql/05_01_semantic.sql` を順番に実行 | Semantic Viewと直接SQLの3指標が一致する |
+| SnowsightのAgents | `agent_texts.md`から正確にコピーしてAgentを作成 | `SV_VIEWING`だけを持つAgentが保存される |
+| Git Workspace | `sql/05_02_agent.sql`の`SHOW`、`DESCRIBE`、`GRANT`を実行 | 設定を確認でき、分析ロールへ共有される |
+| Agent Playground | 4つの検証質問を送る | 数値、生成SQL、対象外・データなしの応答が正しい |
+| CoWork | 同じAgentで代表質問を送る | 共有先の利用者も同じ条件の回答を得られる |
 
 ```text
-利用者の質問（CoWork）
-       ↓
-Agent：何を調べるかを判断
-       ↓
-Cortex Analyst：指標の定義を使ってSQLで分析
-       ↓
-Semantic View：リーチ・時間・回数の定義
-       ↓
-COMMON.VIEWING_DAILY：第2章で作った視聴実績
+質問 → VIEWING_AGENT → Cortex Analyst（SV_VIEWING）
+     → Semantic View → COMMON.VIEWING_DAILY
 ```
 
-> 💡 「リーチを足すだけ」で全体リーチを求めると、同じ端末を二重に数えることがあります。
-> 人がグラフを見るときと同様に、AIにも「範囲全体で端末の重複を除く」というルールを伝えます。
+## 1. 質問前の前提を確認する
 
-## 1. 前提を確認
+第2章の `BCAST_PLATFORM_HANDSON.COMMON.VIEWING_DAILY` が完成していることが前提です。第3章の予測と第4章のアプリは前提ではありません。
 
-第2章の `BCAST_PLATFORM_HANDSON.COMMON.VIEWING_DAILY` が完成していることを確認します。
-第3章の予測や第4章のアプリは、Agentが動くための前提ではありません。
-
-作成ロールは `BCAST_PLATFORM_ENGINEER_ROLE`、閲覧用は `BCAST_PLATFORM_ANALYST_ROLE` です。
-第1章で準備した権限を使い、作成後にビュー・Agentへの個別利用権限を追加します。
-
-### 初回の質問前に確認すること
-
-Agentでは、画面で今選んでいるロールやWHだけでなく、利用者の**既定ロール・既定ウェアハウス**も確認が必要です。
-「既定」とは、ユーザーに設定された標準の選択値です。
-
-次は作成者だけでなく、共有先の利用者にも必要です。講師・管理者の案内を受けてください。
-
-| 確認するもの | 確認内容 |
-|---|---|
-| `DEFAULT_ROLE` | Agent・指標定義・参照データを使う権限を持つか |
-| `DEFAULT_WAREHOUSE` | 設定済みで実在し、既定ロールから利用できるか |
-| Analyst用WH | `BCAST_PLATFORM_COMMON_WH` を利用できるか |
-| Cortex／モデル | このアカウント・リージョンで必要な機能とモデルを使えるか |
-
-作成後の共有権限も含め、**確認が終わるまではPlaygroundやCoWorkへ質問を送信しません。**
-第1章のSQLはユーザーの既定値を変更しないため、セットアップ成功だけでは確認完了にはなりません。
-
-権限が不足する場合も、現在のロールを管理者へ切り替えて進めないでください。
-ユーザーの既定値やロールのつながりは業務利用にも影響するため、管理者が対応を判断します。
-本教材から `ALTER USER` は実行しません。
-
-## 2. セマンティックビューを作成
-
-Semantic View（セマンティックビュー）は、指標と切り口の定義です。
-ここでは、日付・放送局・ジャンルという3つの切り口と、次の3指標を登録します。
-
-| 指標名 | 日本語の意味 | 計算ルール |
+| どこ | 操作 | 成功 |
 |---|---|---|
-| `distinct_reach` | リーチ | `DEVICE_ID` の重複を除いた端末数 |
-| `total_minutes` | 総視聴時間 | `VIEW_MINUTES` の合計。単位は分 |
-| `total_sessions` | 総視聴回数 | `SESSION_COUNT` の合計。表の行数ではない |
+| Snowsightの利用者設定 | 作成者と共有先利用者の`DEFAULT_ROLE`を確認 | Agent、Semantic View、参照データの権限を持つロール、または継承元ロールになっている |
+| Snowsightの利用者設定 | `DEFAULT_WAREHOUSE`を確認 | 実在し、既定ロールから利用できる |
+| Worksheets | `BCAST_PLATFORM_COMMON_WH`の利用可否を確認 | 作成者と共有先の必要ロールで利用できる |
+| アカウント・リージョン | Cortex、Agent、必要なモデルの利用可否を講師・管理者が確認 | 利用可能と確認される |
 
-設定中の **dimension（ディメンション）** は切り口、**metric（メトリック）** は集計する指標を意味します。
-元のデータは `COMMON.VIEWING_DAILY` だけです。ここで予測テーブルと結合することはありません。
+確認が終わるまでPlaygroundやCoWorkへ質問を送信しません。第1章のSQLはユーザーの既定値を変更しません。権限不足を管理者ロールへの切替で回避せず、管理者に依頼します。本教材から`ALTER USER`は実行しません。
 
-共通テーブルの6列は `NETWORK_ID`、`DEVICE_ID`、`VIEW_DATE`、`GENRE`、`SESSION_COUNT`、`VIEW_MINUTES` です。
-端末IDは `C000001`〜`C020000`、教材の期間は2026年5月1日〜7月31日です。
-ジャンルはNEWS（ニュース）、DRAMA（ドラマ）、VARIETY（バラエティ）、ANIME（アニメ）、SPORTS（スポーツ）、MUSIC（音楽）、MOVIE（映画）、INFO（情報）の8種類だけです。この8種類以外は不正値として扱います。
-各視聴区間を1回とし、経過秒数を60で割った時間を開始日・開始時のジャンルに計上します。番組ごとの正確な視聴時間ではありません。
-分別曲線は第4章で扱い、このAgentには接続しません。
+## 2. Semantic Viewを作り、直接SQLと比較する
 
-### 操作
+Semantic Viewは、切り口と指標の計算ルールを定義します。元データは `COMMON.VIEWING_DAILY` だけです。
 
-1. Git Workspaceで [sql/05_01_semantic.sql](../sql/05_01_semantic.sql) を開きます。
-2. 作成先が `BCAST_PLATFORM_HANDSON.MART.SV_VIEWING` であることを確認します。
-3. ロール・WHの選択、ビュー作成、閲覧ロールへの権限付与を順番に実行します。
-4. 後半の `DESCRIBE` と、2つの集計SQLを実行します。
-
-同名のビューが既にあると、作成は停止します。
-無断で `DROP` や `OR REPLACE` を足さず、既存の定義を講師へ確認してください。
-
-### 数値を比較する
-
-末尾の2つのSQLは、同じ期間の数値を別の経路で計算します。
-
-- 1つ目：セマンティックビューに登録した指標で集計。
-- 2つ目：元の共通テーブルを直接集計。
-
-全5局・2026年5月1日〜7月31日の直接SQLの結果を、比較の基準にします。
-期待値はリーチ20,000台・総視聴回数1,050,000回・総視聴時間約12,511,642.266667分です。
-時間の丸めと比較方法は[第2章](02_dbt.md)を参照してください。
-受講時も同じ期間・局の条件で両方を実行し、結果を照合します。
-
-✅ **この直接SQLの結果を、後でAgentの回答と比べます。**
-指標を登録できたことと、質問に正しく答えられたことは別なので、両方を確認しましょう。
-
-## 3. GUIでAgentを作成
-
-GUIは、SQLではなく画面のフォームやボタンで設定する方法です。
-ここではSnowsightで作成します。
-
-**まだ [sql/05_02_agent.sql](../sql/05_02_agent.sql) を全選択実行しないでください。**
-先に画面でAgentを作り、設定・保存を済ませます。
-
-### ① 名前と説明を設定する
-
-**AI & ML → Agents → Create agent** を開き、次を指定します。
-
-| 項目 | 値 |
+| 指標 | 定義 |
 |---|---|
-| 作成ロール | `BCAST_PLATFORM_ENGINEER_ROLE` |
-| Database | `BCAST_PLATFORM_HANDSON` |
-| Schema | `MART` |
-| Agent object name | `VIEWING_AGENT` |
-| Display name | `5局共通の視聴データ分析` |
+| `distinct_reach` | 対象範囲全体で`DEVICE_ID`の重複を除いた端末数。人数・世帯数ではない |
+| `total_minutes` | `VIEW_MINUTES`の合計。単位は分 |
+| `total_sessions` | `SESSION_COUNT`の合計。行数ではない |
 
-オブジェクト名はSnowflake内で使う名前、表示名は利用者が画面で見る名前です。
-同名のAgentがある場合は、上書きせず講師へ確認します。
+日付、放送局、ジャンルが切り口です。教材期間は2026年5月1日から7月31日、局は`NW01`から`NW05`、ジャンルはNEWS、DRAMA、VARIETY、ANIME、SPORTS、MUSIC、MOVIE、INFOの8種類です。視聴時間は区間全体を開始日・開始時のジャンルへ計上するため、番組単位の正確な視聴時間ではありません。
 
-作成後、Edit／Aboutを開きます。
-[agent_texts.md](agent_texts.md) の「説明」と「質問例」を、それぞれ対応する欄へ入力してください。
-質問例は3つを1件ずつ追加します。
+| どこ | 操作 | 成功 |
+|---|---|---|
+| Git Workspace | [sql/05_01_semantic.sql](../sql/05_01_semantic.sql)を開く | 作成先が`BCAST_PLATFORM_HANDSON.MART.SV_VIEWING`である |
+| 同SQL | `USE`、`CREATE SEMANTIC VIEW`、`GRANT`、`DESCRIBE`を順番に実行 | 3つの切り口、3指標、参照先を確認できる |
+| 同SQL末尾 | Semantic ViewのSELECTを実行 | 全期間・全5局の3指標が1行で返る |
+| 同SQL末尾 | 元テーブルの直接SQLを実行 | 対応する3指標がSemantic Viewの結果と一致する |
 
-### ② 数値を調べるツールを追加する
+直接SQLの期待値は、リーチ20,000台、総視聴回数1,050,000回、総視聴時間約12,511,642.266667分です。小数の丸めだけで不一致と判断しません。結果と条件を、後のAgent検証の基準として残します。
 
-**Tools → Cortex Analyst → Add** で **Semantic view** を選びます。
+同名ビューがある場合は停止し、`DROP`や`OR REPLACE`を追加せず講師へ確認します。不一致ならAgent作成へ進みません。
 
-| 項目 | 値 |
-|---|---|
-| Semantic view | `BCAST_PLATFORM_HANDSON.MART.SV_VIEWING` |
-| ツール名 | `SV_VIEWING` |
-| Warehouse | `BCAST_PLATFORM_COMMON_WH` |
-| Query timeout (seconds) | `120` |
-| 説明 | [貼り付け文章](agent_texts.md)の「Analyst ツールの説明」 |
+## 3. GUIでAgentを作る
 
-ツール名が自動で入る画面でも、`SV_VIEWING` になっているか確認します。
-120秒は、Analystが実行する **1つのSQLの待ち時間**です。Agent全体の制限時間ではありません。
+`sql/05_02_agent.sql`はまだ全選択実行しません。先にGUIで作成・保存します。
 
-この章では、ツールをこの1つだけにします。
-Cortex Search、Analytical Search、Code execution、Data to Chart、Web search、Custom tools、MCPは追加・有効化しません。
-`ML.PREDICTIONS` も接続しません。
+### 3-1. 名前と説明
 
-### ③ 調べ方と答え方の指示を入力する
+| どこ | 操作 | 成功 |
+|---|---|---|
+| **AI & ML → Agents → Create agent** | 作成ロールを`BCAST_PLATFORM_ENGINEER_ROLE`にする | 教材用ロールが選択される |
+| 同画面 | Database=`BCAST_PLATFORM_HANDSON`、Schema=`MART`を選ぶ | 作成先が`MART`になる |
+| 同画面 | [agent_texts.md](agent_texts.md)のオブジェクト名、表示名、説明を各欄へコピー | `VIEWING_AGENT`と表示名・説明が入力される |
+| Edit／About | 同ファイルの質問例3件を1件ずつ追加 | 3件が表示される |
 
-Orchestration modelは **Auto** を選びます。
-Orchestrationは、質問を受けて「どのツールを使い、どう回答するか」を進める部分です。
-Autoでは、そのモデル選択をSnowflakeに任せます。特定モデルの固定や、回答品質の保証ではありません。
+同名Agentがある場合は上書きせず講師へ確認します。
 
-[agent_texts.md](agent_texts.md)から、次の2つを別々の欄へ貼り付けます。
+### 3-2. Cortex Analystツールを1つだけ追加
 
-| 入力欄 | 何を指示する？ |
-|---|---|
-| Planning / Orchestration instructions | 必ず実績を調べる、リーチを足さない、予測の質問には答えない等 |
-| Response instructions | 日本語で答える、期間・単位・参照元を添える等 |
+| どこ | 操作 | 成功 |
+|---|---|---|
+| **Tools → Cortex Analyst → Add** | **Semantic view**を選ぶ | Cortex Analystの設定欄が開く |
+| 同画面 | [agent_texts.md](agent_texts.md)のツール名・説明と設定表をそのまま入力 | `SV_VIEWING`、対象Semantic View、WH、120秒が設定される |
+| Tools一覧 | 追加済みツールを確認 | ツールが`SV_VIEWING`の1つだけである |
 
-### ④ 保存する
+Cortex Search、Analytical Search、Code execution、Data to Chart、Web search、Custom tools、MCPは追加・有効化しません。`ML.PREDICTIONS`も接続しません。120秒はAnalystが実行する1つのSQLの待ち時間で、Agent全体の制限ではありません。
 
-**Save** で保存します。
-UIにPublish／公開や版の選択がある場合は、今回設定した版を確認して公開します。
-公開操作がない画面では、詳細画面を開き直して保存内容を確認してください。
+### 3-3. 指示を正確にコピーして保存
 
-次の共有設定まで済ませてから、質問を試します。
-ボタン名や設定欄が手順と異なる場合は、講師へ確認してください。
+| どこ | 操作 | 成功 |
+|---|---|---|
+| Orchestration model | `Auto`を選ぶ | `Auto`と表示される |
+| Planning / Orchestration instructions | [agent_texts.md](agent_texts.md)の同名ブロックを全文コピー | 先頭から末尾まで保存される |
+| Response instructions | 同ファイルの同名ブロックを全文コピー | Planningとは別の欄に保存される |
+| Agent編集画面 | **Save**を押し、Publish／公開がある場合は今回の版を公開 | 再度開いて設定が残っている |
 
-## 4. 作成後の確認と共有
+`Auto`はモデル選択をSnowflakeへ任せる設定で、回答品質の保証ではありません。画面名が異なる場合は推測せず講師へ確認します。
 
-### 設定が保存されたか確認する
+## 4. 設定を確認し、共有する
 
-[sql/05_02_agent.sql](../sql/05_02_agent.sql) を開きます。
-冒頭のロール・WH指定に続いて、GUIチェックポイントより後の `SHOW` と `DESCRIBE` を実行します。
+| どこ | 操作 | 成功 |
+|---|---|---|
+| Git Workspace | [sql/05_02_agent.sql](../sql/05_02_agent.sql)を開く | GUI作成後であることを確認できる |
+| 同SQL | `SHOW AGENTS`と`DESCRIBE AGENT`だけを実行 | `VIEWING_AGENT`が存在し、参照先と設定を確認できる |
+| Agent画面 | ToolsとInstructionsを再確認 | ツールは`SV_VIEWING`のみ、WH、120秒、指示全文が保存されている |
+| 同SQL | `GRANT USAGE ON AGENT ... TO ROLE BCAST_PLATFORM_ANALYST_ROLE`を実行 | GRANTが成功する |
 
-- `SHOW`：Agentの一覧を確認するSQL。
-- `DESCRIBE`：指定したAgentの詳細を確認するSQL。
-- `GRANT`：指定したロールへ利用権限を渡すSQL。
+作成者は所有者として利用できるため、エンジニアロールへのUSAGE再付与は不要です。Semantic Viewへの`SELECT / REFERENCES`は `05_01_semantic.sql` で付与済みです。既定ロールが必要権限を直接持つか、ロール階層から継承する必要があります。
 
-`BCAST_PLATFORM_HANDSON.MART.VIEWING_AGENT` があることを確認します。
-画面でもツールがSV_VIEWINGだけで、指示・WH・120秒の設定が保存されているか確認します。
-その後、同じファイル内の `GRANT USAGE` を実行し、アナリストロールへ共有します。
+`sql/05_02_agent.sql`末尾のコメント内DDLは、GUIでまだAgentを一度も作成しておらず、講師から指示された場合だけ使う代替経路です。GUIと両方を実行しません。
 
-作成者は所有者として使えるため、同じエンジニアロールへのUSAGE再付与は不要です。
+## 5. Playgroundで検証する
 
-### CoWorkでAgentを選ぶ
+各質問で、**回答文だけでなく生成SQLと実行結果を開いて確認**します。
 
-アカウント内の **CoWork**、または [ai.snowflake.com](https://ai.snowflake.com/) を開きます。
-環境によってはSnowflake Intelligenceと表示されます。
+| どこ | 操作 | 成功 |
+|---|---|---|
+| Playground | `2026年5月1日から7月31日の全5局のリーチ、総視聴時間、総視聴回数を教えてください`と質問 | 期間・局・単位が明示され、3指標が直接SQLの基準値と一致する |
+| Playground | `2026年5月1日から7月31日の放送局別リーチを比較してください`と質問 | 局別リーチを足して全体リーチとしていない |
+| Playground | `2026年5月1日から7月31日のF1在籍あり予測の端末数を教えてください`と質問 | F1在籍予測は対象外と説明し、視聴実績から推測しない |
+| Playground | `2026年8月の全5局のリーチを教えてください`と質問 | 5月から7月へ置換せず、該当データなしと説明する。エラーを0件と扱わない |
 
-一覧から **「5局共通の視聴データ分析」** を探します。
-作成した設定の版が反映されていることと、第1節の既定ロール・WH・利用権限の確認を済ませてください。
+生成SQLでは、日付条件と局条件、`COUNT(DISTINCT DEVICE_ID)`、`SUM(VIEW_MINUTES)`、`SUM(SESSION_COUNT)`に相当する集計を確認します。日別や局別のリーチを足して期間全体を作ってはいけません。
 
-Agentが一覧に見えるだけでは、分析ツールまで使えるとは限りません。
-見つからない、権限が不足する場合は、設定を推測して変更せず管理者へ確認します。
-既存のSnowflake Intelligenceオブジェクトへの登録が必要な構成もありますが、本手順で既存設定を自動変更しません。
+F1は20歳から34歳の女性です。ただしこのAgentは予測テーブルを持たないため、F1在籍確率、予測端末数、実際のF1視聴者数、モデル評価を答えません。
 
-## 5. 質問して、結果を確認する
+## 6. CoWorkで共有先を検証する
 
-まずAgentの **Playground（試しに会話する画面）** で質問し、CoWorkでも同じように試します。
-作成者だけでなく、共有先の利用者でも利用できることを確認します。
+| どこ | 操作 | 成功 |
+|---|---|---|
+| CoWorkまたは[ai.snowflake.com](https://ai.snowflake.com/) | 共有先利用者で「5局共通の視聴データ分析」を選ぶ | Agentが表示される |
+| 同画面 | 全体3指標の質問を送る | Playgroundと同じ条件・指標の回答になる |
+| 共有先の設定 | 既定ロール、既定WH、Analyst用WHを再確認 | 権限エラーなくツールが実行される |
 
-### 質問① 全体の数値
+一覧に見えるだけではツール利用の確認になりません。見つからない、または権限エラーの場合は設定を推測して変えず、管理者へ確認します。既存のSnowflake Intelligenceオブジェクトを本教材から自動変更しません。
 
-```text
-2026年5月1日から7月31日の全5局のリーチ、総視聴時間、総視聴回数を教えてください
-```
-
-第2節で直接SQLを実行した結果と比較します。
-回答文だけでなく、生成されたSQLと実行結果も確認してください。
-期間・局・単位が同じかを見ることが大切です。
-
-### 質問② 局別と全体の違い
-
-```text
-2026年5月1日から7月31日の放送局別リーチを比較してください
-```
-
-その後、全5局をまとめたリーチも質問します。
-同じ端末が局をまたいでいるので、局別の数値を足して全体値にしていないかを確認します。
-
-日別リーチについても同様です。
-日別推移と期間全体をそれぞれ質問し、日別値の合計を期間リーチにしていないか確認します。
-生成SQLの日付条件が集計前に適用されていることも見ます。
-
-### 質問③ 対象外のことを聞く
-
-```text
-2026年5月1日から7月31日のF1在籍あり予測の端末数を教えてください
-```
-
-このAgentには予測テーブルを接続していないので、**予測は対象外と説明すること**を確認します。
-「特定ジャンルを見た端末数」を、F1在籍の予測数として答えてはいけません。
-F1は20〜34歳の女性を指します。F1在籍は世帯にF1がいることを意味し、20〜34歳の女性の単身世帯も含みます。在籍予測から、実際にF1の人が視聴した人数や、確認済みの世帯数は分かりません。
-
-### 質問④ データがない期間を聞く
-
-```text
-2026年8月の全5局のリーチを教えてください
-```
-
-教材のデータは5月から7月です。
-勝手に教材の期間へ置き換えず、該当データがないと説明することを確認します。
-ツール実行エラーが出た場合は、データなしや0件とは区別して扱います。
-
-✅ PlaygroundとCoWorkの両方で、共有先の利用者でも結果を確認できれば、この章は完了です。
-
-> ⚠️ 文章の指示だけで、正しい回答やアクセス制御が保証されるわけではありません。
-> 実行SQLと結果の確認、Snowflake側の権限設定の両方が必要です。
+PlaygroundとCoWorkの両方で、共有先利用者が直接SQLと同条件の結果を確認できれば完了です。
 
 ## うまくいかないとき
 
-| 状況 | 確認すること |
+| 状況 | 確認 |
 |---|---|
-| Semantic Viewが選べない | 作成先のDB・スキーマ、作成成功、参照権限 |
-| Agentが一覧にない | 配置先・表示名、保存／公開した版、AgentのUSAGE |
-| 一覧にはあるが質問で失敗する | 既定ロール・既定WH、Analyst用WH、ツールと元データの権限 |
-| 回答値がSQLと違う | 対象期間・局、リーチの重複除去、回数に行数を使っていないか |
-| 同名オブジェクトが既にある | 作り直さず、既存の定義と用途を講師へ確認 |
+| Semantic Viewを選べない | DB・スキーマ、作成結果、参照権限 |
+| Agentが一覧にない | 配置先、表示名、保存／公開した版、AgentのUSAGE |
+| Agentは見えるが質問に失敗 | 既定ロール・既定WH、Analyst用WH、Semantic Viewと元データの権限 |
+| 回答値が直接SQLと違う | 期間・局、生成SQL、リーチの重複除去、`SESSION_COUNT`の合計 |
+| 同名オブジェクトがある | 上書きせず、所有者と用途を講師・管理者へ確認 |
 
-エラーを避けるために管理者権限を広く付けるのではなく、どの操作で止まったかを確認しましょう。
+権限回避のために広い管理者権限を付けません。どの操作で止まったかを記録します。
 
-## 補足：権限とモデル設定
+## 補足と参考
 
-第1章では、エンジニアにMARTへの `CREATE SEMANTIC VIEW`・`CREATE AGENT`、元テーブルの参照、DB・スキーマ・共通WHの利用権限を準備します。
-アナリストにはDB・MART・COMMON・共通WHと共通マートの必要権限を準備します。
-
-この章では、作成したSVへの `SELECT / REFERENCES` と、Agentへの `USAGE` を付与します。
-既定ロールがこれらを直接持つか、ロール階層を通じて継承する必要があります。
-ユーザーに教材ロールが付いているだけでは、別の既定ロールにも権限が渡るわけではありません。
-
-Agent全体のorchestration budget（処理全体の予算・制限）は、この教材では明示設定していません。
-Analystの120秒とは別であり、GUIの既定値と代替SQLの実行結果が同等とは断定しません。
-必要なCortex利用条件は、講師・管理者が[公式セットアップ](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-agents-setup)で確認します。
-
-## 補足：新規Agent作成の代替SQL
-
-GUIで作成できない場合に、講師と相談して使う方法です。
-**まだAgentを1つも作成していない場合だけ**、`sql/05_02_agent.sql` 末尾のコメント内の `CREATE AGENT` 文を選択実行します。
-コメントの囲み `/*` と `*/` は選択範囲へ含めません。
-
-GUIで途中まで作ったAgentがある場合は、このSQLを実行しません。
-同名Agentを上書きするSQLではないので、講師へ設定の完了方法を確認してください。
-
-設定の意図はGUI用文章とそろえていますが、両経路の動作が同じだと検証したわけではありません。
-実行後も第4・5節の確認を省略しません。GUIが利用できなければ、SQL作成までで止め、共有・CoWork確認は未完了とします。
-
-## 振り返り
-
-共通テーブルに指標の意味を定義し、Agentがそれを使って分析する構成を作りました。
-表を作るだけでなく、**人とAIが同じ数え方でデータを使えるようにする**ことが、この章のポイントです。
-
-本編はここまでです。必要に応じて[補足教材](../supplemental/README.md)を読みます。
-終了時は[後片付けの案内](01_setup.md#後片付け)を確認してください。
-
-## 参考
+Agent全体のorchestration budgetは明示設定していません。Analystの120秒とは別です。GUIと代替SQLの動作が同じとは断定しないため、どちらの経路でもPlaygroundとCoWorkの検証を省略しません。
 
 - [CREATE SEMANTIC VIEW](https://docs.snowflake.com/en/sql-reference/sql/create-semantic-view)
-- [CREATE AGENT](https://docs.snowflake.com/en/sql-reference/sql/create-agent)
 - [AgentのGUI管理](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-agents-manage)
-- [Agentの仕様](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-agents-rest-api)
 - [Agentのアクセス設定](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-agents-setup)
+- [補足教材](../supplemental/README.md)
+- [後片付け](01_setup.md#後片付け)
