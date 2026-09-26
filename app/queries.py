@@ -12,7 +12,7 @@ NETWORKS = ("NW01", "NW02", "NW03", "NW04", "NW05")
 DATASET_VERSION = "F1_SIGNAL_V2"
 EXPECTED_DEVICES = 20000
 EXPECTED_THRESHOLD = 0.50
-MODEL_VERSION_PATTERN = r"V([2-9]|[1-9][0-9]+)"
+MODEL_VERSION_PATTERN = r"V[1-9][0-9]*"
 
 # 日次マートに存在する最初と最後の視聴日を1行で返し、画面の日付選択範囲に使います。
 BOUNDS_SQL = f"""
@@ -201,8 +201,8 @@ def validate_prediction_snapshot(result):
         raise PredictionValidationError(
             "予測データを表示できません。20,000端末（C000001〜C020000）の全件・重複端末・欠損・"
             "不正なクラスや確率・保存閾値・端末ID・モデル情報を確認してください。"
-            "F1_SIGNAL_V2、単一のV2以降のモデルバージョン、単一の保存日時、閾値0.50が必要です。"
-            "V1や旧形式は第3章で再推論・保存してから再読込してください。"
+            "F1_SIGNAL_V2、単一のモデルバージョン、単一の保存日時、閾値0.50が必要です。"
+            "旧形式は第3章で再推論・保存してから再読込してください。"
         )
     # 全件検証に通った後も、表示する分布の合計が選択された端末数と一致することを確認します。
     predictions = result.loc[result["DEVICE_COUNT"].notna(), list(display_columns)].copy()

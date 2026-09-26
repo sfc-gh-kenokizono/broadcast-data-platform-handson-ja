@@ -66,7 +66,7 @@ Custom imageは選択せず、**Create and connect** を押します。
 
 ```text
 パッケージ: scikit-learn ... / XGBoost ...
-準備完了: TV_F1_PRESENCE_MODEL V3
+準備完了: TV_F1_PRESENCE_MODEL V1
 ```
 
 バージョン番号はRuntimeに含まれるものが表示されます。追加のパッケージインストールは行いません。
@@ -159,7 +159,7 @@ XGBoostは、小さな決定木を順番に作り、前の木が間違えた部�
 
 **入力:** 学習・評価済みのXGBoostモデル
 
-**処理:** モデルを `TV_F1_PRESENCE_MODEL` の初期版 `V3` としてModel Registryへ登録します。V3が既存の場合は、Notebook先頭の `MODEL_VERSION` で選んだ未使用版を使います。学習データの一部も、SHAP値を計算するときの比較基準として登録します。
+**処理:** モデルを `TV_F1_PRESENCE_MODEL` の初回版 `V1` としてModel Registryへ登録します。同じ版が既にある場合は上書きせず停止します。再登録するときだけ、Notebook先頭の `MODEL_VERSION` を未使用の `V2` などへ変更します。学習データの一部も、SHAP値を計算するときの比較基準として登録します。
 
 Model Registryでは、モデル本体、版、評価指標、Pythonとライブラリの環境、予測関数、説明関数を同じSnowflakeオブジェクトとして管理します。ロールの権限で利用者を制御でき、登録した版を後続処理から同じ名前で呼び出せます。
 
