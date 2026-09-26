@@ -10,7 +10,7 @@
 | 2 | Streamlit作成画面 | Query / App warehouseを `BCAST_PLATFORM_COMMON_WH` にし、リポジトリから作成するか3ファイルを配置する | `streamlit_app.py`、`queries.py`、`environment.yml` がそろう |
 | 3 | Streamlit画面 | **Run** を選ぶ | 画面上部に「5局の視聴データ」と表示される |
 | 4 | 「視聴実績・推移」タブ | 全5局、2026年5月1日〜7月31日を選ぶ | 20,000台、1,050,000回、12,511,642.3分と表示される |
-| 5 | 「分内視聴端末数」「F1在籍の予測」タブ | 1日を選んで「分別曲線を表示」をオンにし、「予測結果を表示」もオンにする | 5系列と、欠損のない予測・モデル版・閾値0.46が表示される |
+| 5 | 「分内視聴端末数」「F1在籍の予測」タブ | 1日を選んで「分別曲線を表示」をオンにし、「予測結果を表示」もオンにする | 5系列と、欠損のない予測・モデル版・閾値0.50が表示される |
 | 6 | Projects → Streamlit | `BCAST_PLATFORM_HANDSON.MART.VIEWING_APP` を公開し、`BCAST_PLATFORM_ANALYST_ROLE` に `USAGE` を付与する | アナリストロールでKPI・グラフ・予測を見られる |
 
 **共有先に `PUBLIC` を指定しないでください。** このアプリは所有者権限でデータを読みます。所有者は `ACCOUNTADMIN` ではなく `BCAST_PLATFORM_ENGINEER_ROLE` にします。利用者ごとの行制御は実装していないため、教材データだけを共有し、正解ラベルを画面へ追加しません。
@@ -84,11 +84,11 @@ Snowsightの **Projects → Streamlit → + Streamlit App** を開き、**Run on
 2. 0・1の合計が、同じ条件の実績リーチと一致することを確認します。
 3. 予測欠損や不正値があれば、条件を変えて隠さず第3章の保存・照合を確認します。
 
-参照する `ML.PREDICTIONS` は `DEVICE_ID`、`PROB_F1`、`PREDICTED_HAS_F1`、`MODEL_NAME`、`MODEL_VERSION`、`PREDICTED_AT`、`PREDICTION_THRESHOLD`、`DATASET_VERSION` の8列です。モデルは `TV_F1_PRESENCE_MODEL`、初期版は `V2`、登録済み環境では第3章で選んだ未使用の `V3` などです。閾値はVALIDで選んだ0.46で、0.5へ読み替えません。日時はUTCの `TIMESTAMP_NTZ`、データ版は `F1_SIGNAL_V2` です。
+参照する `ML.PREDICTIONS` は `DEVICE_ID`、`PROB_F1`、`PREDICTED_HAS_F1`、`MODEL_NAME`、`MODEL_VERSION`、`PREDICTED_AT`、`PREDICTION_THRESHOLD`、`DATASET_VERSION` の8列です。モデルは `TV_F1_PRESENCE_MODEL`、初期版は `V3`、登録済み環境では第3章で選んだ未使用の `V4` などです。XGBoostモデルの判定境界は0.50です。日時はUTCの `TIMESTAMP_NTZ`、データ版は `F1_SIGNAL_V2` です。
 
 ヒストグラムは0.1刻みで、最後の区間だけ1.0を含みます。グラフと表は選択期間・局に視聴実績がある端末だけが対象です。同じ端末は重複を除いてから予測へ結び付けます。期間や局の変更は表示対象の変更で、再学習ではありません。
 
-F1は合成世帯に20〜34歳の女性が在籍するかという期間不変の属性です。現在の視聴者、実際のF1視聴者数、確認済み世帯数ではありません。V2は学習しやすい関係を強めた合成データで、確率の校正後も現実の精度を保証せず、確率を人数や全国推計へ換算しません。`RAW.DEVICE_LABELS` の正解ラベルや非公開の世帯構成は読み取りも表示もしません。
+F1は合成世帯に20〜34歳の女性が在籍するかという期間不変の属性です。現在の視聴者、実際のF1視聴者数、確認済み世帯数ではありません。V2は学習しやすい関係を強めた合成データです。この教材の予測確率は現実の精度を保証せず、人数や全国推計へ換算しません。`RAW.DEVICE_LABELS` の正解ラベルや非公開の世帯構成は読み取りも表示もしません。
 
 | 表示 | 確認すること |
 |---|---|
