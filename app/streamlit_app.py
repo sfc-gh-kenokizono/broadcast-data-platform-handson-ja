@@ -43,13 +43,8 @@ st.markdown(
     .section-label {color:#1687b8; font-size:.73rem; font-weight:700; letter-spacing:.1em; margin-bottom:.15rem;}
     .insight {border-left:4px solid #29b5e8; background:#f5fbfe; border-radius:0 10px 10px 0;
       padding:.8rem 1rem; color:#304b62; margin:.45rem 0 1rem;}
-    .pipeline {display:grid; grid-template-columns:repeat(5,minmax(110px,1fr)); gap:.45rem; margin:.6rem 0 1rem;}
-    .pipeline div {border:1px solid #dbe8ef; border-radius:10px; padding:.65rem; background:#fff;
-      color:#40566d; text-align:center; font-size:.77rem;}
-    .pipeline b {display:block; color:#11567f; font-size:.85rem; margin-bottom:.15rem;}
     .tag {display:inline-block; padding:.18rem .5rem; border-radius:999px; background:#eaf7fc;
       color:#157da8; font-size:.72rem; font-weight:600; margin-right:.25rem;}
-    @media (max-width:900px) {.pipeline {grid-template-columns:1fr 1fr;}}
     </style>
     """,
     unsafe_allow_html=True,
@@ -184,7 +179,7 @@ try:
             avg_minutes = summary["TOTAL_MINUTES"] / summary["DISTINCT_REACH"]
             previous_avg = previous["TOTAL_MINUTES"] / previous["DISTINCT_REACH"] if previous is not None and previous["DISTINCT_REACH"] else None
             k1, k2, k3, k4 = st.columns(4)
-            k1.metric("5局重複除外リーチ", f"{int(summary['DISTINCT_REACH']):,}台", metric_delta(summary["DISTINCT_REACH"], previous["DISTINCT_REACH"] if previous is not None else None))
+            k1.metric("重複除外リーチ", f"{int(summary['DISTINCT_REACH']):,}台", metric_delta(summary["DISTINCT_REACH"], previous["DISTINCT_REACH"] if previous is not None else None))
             k2.metric("総視聴時間", to_hours(summary["TOTAL_MINUTES"]), metric_delta(summary["TOTAL_MINUTES"], previous["TOTAL_MINUTES"] if previous is not None else None))
             k3.metric("視聴区間", f"{int(summary['TOTAL_SESSIONS']):,}回", metric_delta(summary["TOTAL_SESSIONS"], previous["TOTAL_SESSIONS"] if previous is not None else None))
             k4.metric("1台あたり視聴", f"{avg_minutes:,.1f}分", metric_delta(avg_minutes, previous_avg))
@@ -229,20 +224,6 @@ try:
                     "NETWORK_ID": "放送局", "DISTINCT_REACH": "リーチ（端末）",
                     "TOTAL_MINUTES": "総視聴時間（分）", "TOTAL_SESSIONS": "総視聴回数",
                 }), hide_index=True, use_container_width=True)
-
-            st.markdown("### Snowflakeでつながる処理")
-            st.markdown(
-                """
-                <div class="pipeline">
-                  <div><b>5局のRAW</b>Parquet原本</div>
-                  <div><b>dbt</b>整形・統合・テスト</div>
-                  <div><b>共通MART</b>日次・毎分指標</div>
-                  <div><b>Snowpark ML</b>評価・登録・推論</div>
-                  <div><b>Streamlit</b>分析と共有</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
 
     elif view == "視聴トレンド":
         section_header("AUDIENCE TREND", "局とコンテンツの視聴傾向", "日々の変化、局別パフォーマンス、ジャンル構成を同じ条件で比較します。")
