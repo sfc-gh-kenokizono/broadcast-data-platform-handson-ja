@@ -11,12 +11,21 @@ PREDICTIONS_TABLE = "BCAST_PLATFORM_HANDSON.ML.PREDICTIONS"
 NETWORKS = ("NW01", "NW02", "NW03", "NW04", "NW05")
 DATASET_VERSION = "F1_SIGNAL_V2"
 EXPECTED_DEVICES = 20000
+EXPECTED_THRESHOLD = 0.50
 MODEL_VERSION_PATTERN = r"V([2-9]|[1-9][0-9]+)"
 
 # 日次マートに存在する最初と最後の視聴日を1行で返し、画面の日付選択範囲に使います。
 BOUNDS_SQL = f"""
-SELECT MIN(VIEW_DATE) AS DATE_MIN, MAX(VIEW_DATE) AS DATE_MAX
-FROM {COMMON_TABLE}
+SELECT daily.DATE_MIN, daily.DATE_MAX,
+       minute.MINUTE_DATE_MIN, minute.MINUTE_DATE_MAX
+FROM (
+    SELECT MIN(VIEW_DATE) AS DATE_MIN, MAX(VIEW_DATE) AS DATE_MAX
+    FROM {COMMON_TABLE}
+) AS daily
+CROSS JOIN (
+    SELECT MIN(VIEW_DATE) AS MINUTE_DATE_MIN, MAX(VIEW_DATE) AS MINUTE_DATE_MAX
+    FROM {MINUTE_TABLE}
+) AS minute
 """
 
 # 予測テーブル全体の行数・端末数・不正行数と、閾値／モデル／データセットの統一状況を1行で返します。
@@ -27,6 +36,7 @@ SELECT COUNT(*) AS ROW_COUNT,
        MIN(PREDICTION_THRESHOLD) AS PREDICTION_THRESHOLD,
        COUNT(DISTINCT MODEL_VERSION) AS MODEL_VERSION_COUNT,
        MIN(MODEL_VERSION) AS HEALTH_MODEL_VERSION,
+       COUNT(DISTINCT PREDICTED_AT) AS PREDICTED_AT_COUNT,
        COUNT(DISTINCT DATASET_VERSION) AS DATASET_VERSION_COUNT,
        MIN(DATASET_VERSION) AS DATASET_VERSION,
        COALESCE(SUM(CASE
@@ -34,7 +44,7 @@ SELECT COUNT(*) AS ROW_COUNT,
                 AND DEVICE_ID BETWEEN 'C000001' AND 'C020000'
                 AND PROB_F1 BETWEEN 0.0 AND 1.0
                 AND PROB_F1 NOT IN ('NaN'::FLOAT, 'inf'::FLOAT, '-inf'::FLOAT)
-                AND PREDICTION_THRESHOLD BETWEEN 0.0 AND 1.0
+                AND PREDICTION_THRESHOLD = {EXPECTED_THRESHOLD}
                 AND PREDICTION_THRESHOLD NOT IN ('NaN'::FLOAT, 'inf'::FLOAT, '-inf'::FLOAT)
                 AND PREDICTED_HAS_F1 IN (0, 1)
                 AND PREDICTED_HAS_F1 = CASE WHEN PROB_F1 >= PREDICTION_THRESHOLD THEN 1 ELSE 0 END
@@ -58,6 +68,7 @@ GROUPS = {
     "daily": ("VIEW_DATE",),
     "network": ("NETWORK_ID",),
     "genre": ("GENRE",),
+    "network_genre": ("NETWORK_ID", "GENRE"),
 }
 
 
@@ -136,6 +147,7 @@ GROUP BY PREDICTION_GROUP, PROBABILITY_BIN, prediction.MODEL_NAME, prediction.MO
 SELECT health.ROW_COUNT, health.DEVICE_COUNT AS HEALTH_DEVICE_COUNT,
        health.INVALID_COUNT, health.THRESHOLD_COUNT, health.PREDICTION_THRESHOLD,
        health.MODEL_VERSION_COUNT, health.HEALTH_MODEL_VERSION,
+       health.PREDICTED_AT_COUNT,
        health.DATASET_VERSION_COUNT, health.DATASET_VERSION,
        selected_health.INVALID_SELECTED_IDS, selected_health.SELECTED_DEVICE_COUNT,
        prediction_counts.*
@@ -154,6 +166,7 @@ def validate_prediction_snapshot(result):
     health_columns = (
         "ROW_COUNT", "HEALTH_DEVICE_COUNT", "INVALID_COUNT", "THRESHOLD_COUNT",
         "PREDICTION_THRESHOLD", "MODEL_VERSION_COUNT", "HEALTH_MODEL_VERSION",
+        "PREDICTED_AT_COUNT",
         "DATASET_VERSION_COUNT", "DATASET_VERSION", "INVALID_SELECTED_IDS",
         "SELECTED_DEVICE_COUNT",
     )
@@ -178,16 +191,17 @@ def validate_prediction_snapshot(result):
         or health["INVALID_SELECTED_IDS"] != 0
         or health["THRESHOLD_COUNT"] != 1
         or health["MODEL_VERSION_COUNT"] != 1
+        or health["PREDICTED_AT_COUNT"] != 1
         or health["DATASET_VERSION_COUNT"] != 1
         or health["DATASET_VERSION"] != DATASET_VERSION
         or not re.fullmatch(MODEL_VERSION_PATTERN, str(health["HEALTH_MODEL_VERSION"]))
         or not isfinite(float(threshold))
-        or not 0 <= float(threshold) <= 1
+        or float(threshold) != EXPECTED_THRESHOLD
     ):
         raise PredictionValidationError(
             "予測データを表示できません。20,000端末（C000001〜C020000）の全件・重複端末・欠損・"
             "不正なクラスや確率・保存閾値・端末ID・モデル情報を確認してください。"
-            "F1_SIGNAL_V2、単一のV2以降のモデルバージョン、単一の有限な閾値（0〜1）が必要です。"
+            "F1_SIGNAL_V2、単一のV2以降のモデルバージョン、単一の保存日時、閾値0.50が必要です。"
             "V1や旧形式は第3章で再推論・保存してから再読込してください。"
         )
     # 全件検証に通った後も、表示する分布の合計が選択された端末数と一致することを確認します。
