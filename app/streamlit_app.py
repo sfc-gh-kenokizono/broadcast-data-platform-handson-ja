@@ -72,7 +72,7 @@ def section_header(kicker, title, caption):
 
 def metric_delta(current, previous):
     if previous in (None, 0) or pd.isna(previous):
-        return "比較期間なし"
+        return None
     return f"{(current / previous - 1) * 100:+.1f}% 前期間比"
 
 
