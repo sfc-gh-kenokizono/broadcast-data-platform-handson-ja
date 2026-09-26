@@ -211,11 +211,12 @@ try:
                     st.altair_chart(styled(chart), use_container_width=True)
             with right:
                 with st.container(border=True):
+                    st.markdown("**総視聴時間の局別構成**")
                     share = alt.Chart(network).mark_arc(innerRadius=58, outerRadius=105).encode(
                         theta=alt.Theta("TOTAL_MINUTES:Q"),
                         color=alt.Color("NETWORK_ID:N", title="局", scale=alt.Scale(range=NETWORK_COLORS)),
                         tooltip=[alt.Tooltip("NETWORK_ID:N", title="局"), alt.Tooltip("TOTAL_MINUTES:Q", title="視聴分", format=",.0f")],
-                    ).properties(height=320, title="総視聴時間の局別構成")
+                    ).properties(height=300)
                     st.altair_chart(styled(share), use_container_width=True)
 
             with st.container(border=True):
