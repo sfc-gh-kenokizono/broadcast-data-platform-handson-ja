@@ -59,7 +59,6 @@ def styled(chart):
             gridColor="#edf2f6", domainColor="#d8e1e8", labelFontSize=11, titleFontSize=12,
         )
         .configure_legend(labelFont=FONT, titleFont=FONT, labelColor="#40566d", titleColor=NAVY, orient="bottom")
-        .configure_title(font=FONT, fontSize=15, color=NAVY, anchor="start")
         .configure_view(strokeWidth=0)
     )
 
@@ -201,13 +200,14 @@ try:
             left, right = st.columns([1.6, 1])
             with left:
                 with st.container(border=True):
+                    st.markdown("**重複除外リーチの推移**")
                     chart = alt.Chart(trend).mark_line(strokeWidth=2.4).encode(
                         x=alt.X("VIEW_DATE:T", title=None),
                         y=alt.Y("VALUE:Q", title="リーチ（台）", scale=alt.Scale(zero=False)),
                         color=alt.Color("SERIES:N", title=None, scale=alt.Scale(range=[SNOWFLAKE_BLUE, NAVY])),
                         strokeDash=alt.StrokeDash("SERIES:N", title=None),
                         tooltip=[alt.Tooltip("VIEW_DATE:T", title="日付"), alt.Tooltip("SERIES:N", title="系列"), alt.Tooltip("VALUE:Q", title="台数", format=",.0f")],
-                    ).properties(height=320, title="重複除外リーチの推移")
+                    ).properties(height=320)
                     st.altair_chart(styled(chart), use_container_width=True)
             with right:
                 with st.container(border=True):
@@ -237,41 +237,45 @@ try:
         else:
             daily["VIEW_DATE"] = pd.to_datetime(daily["VIEW_DATE"])
             with st.container(border=True):
+                st.markdown("**日別の総視聴時間**")
                 chart = alt.Chart(daily).mark_area(
                     line={"color": SNOWFLAKE_BLUE, "strokeWidth": 2}, color=SNOWFLAKE_BLUE, opacity=.2
                 ).encode(
                     x=alt.X("VIEW_DATE:T", title=None),
                     y=alt.Y("TOTAL_MINUTES:Q", title="総視聴時間（分）", scale=alt.Scale(zero=False)),
                     tooltip=[alt.Tooltip("VIEW_DATE:T", title="日付"), alt.Tooltip("TOTAL_MINUTES:Q", title="視聴分", format=",.1f")],
-                ).properties(height=330, title="日別の総視聴時間")
+                ).properties(height=330)
                 st.altair_chart(styled(chart), use_container_width=True)
 
             c1, c2 = st.columns(2)
             with c1:
                 with st.container(border=True):
+                    st.markdown("**局別の視聴量**")
                     bars = alt.Chart(network).mark_bar(cornerRadiusEnd=4).encode(
                         x=alt.X("TOTAL_MINUTES:Q", title="総視聴時間（分）"),
                         y=alt.Y("NETWORK_ID:N", title=None, sort="-x"),
                         color=alt.Color("NETWORK_ID:N", title="局", scale=alt.Scale(range=NETWORK_COLORS)),
                         tooltip=[alt.Tooltip("NETWORK_ID:N", title="局"), alt.Tooltip("DISTINCT_REACH:Q", title="リーチ", format=",.0f"), alt.Tooltip("TOTAL_MINUTES:Q", title="視聴分", format=",.1f")],
-                    ).properties(height=330, title="局別の視聴量")
+                    ).properties(height=330)
                     st.altair_chart(styled(bars), use_container_width=True)
             with c2:
                 with st.container(border=True):
+                    st.markdown("**ジャンル別の視聴量**")
                     genre_chart = alt.Chart(genre).mark_bar(color=TEAL, cornerRadiusEnd=4).encode(
                         x=alt.X("TOTAL_MINUTES:Q", title="総視聴時間（分）"),
                         y=alt.Y("GENRE:N", title=None, sort="-x"),
                         tooltip=[alt.Tooltip("GENRE:N", title="ジャンル"), alt.Tooltip("DISTINCT_REACH:Q", title="リーチ", format=",.0f"), alt.Tooltip("TOTAL_MINUTES:Q", title="視聴分", format=",.1f")],
-                    ).properties(height=330, title="ジャンル別の視聴量")
+                    ).properties(height=330)
                     st.altair_chart(styled(genre_chart), use_container_width=True)
 
             with st.container(border=True):
+                st.markdown("**局 × ジャンルの視聴ヒートマップ**")
                 heat = alt.Chart(network_genre).mark_rect(cornerRadius=3).encode(
                     x=alt.X("GENRE:N", title="ジャンル"),
                     y=alt.Y("NETWORK_ID:N", title="放送局"),
                     color=alt.Color("TOTAL_MINUTES:Q", title="視聴分", scale=alt.Scale(scheme="blues")),
                     tooltip=[alt.Tooltip("NETWORK_ID:N", title="局"), alt.Tooltip("GENRE:N", title="ジャンル"), alt.Tooltip("DISTINCT_REACH:Q", title="リーチ", format=",.0f"), alt.Tooltip("TOTAL_MINUTES:Q", title="視聴分", format=",.1f")],
-                ).properties(height=280, title="局 × ジャンルの視聴ヒートマップ")
+                ).properties(height=280)
                 st.altair_chart(styled(heat), use_container_width=True)
             st.caption("全区間を視聴開始日と開始時ジャンルへ計上する教材用集計です。番組ごとの厳密な視聴時間ではありません。")
 
@@ -303,22 +307,24 @@ try:
                 count_frame = counts.rename_axis("PREDICTION_GROUP").reset_index(name="DEVICE_COUNT")
                 with left:
                     with st.container(border=True):
+                        st.markdown("**予測ラベルの構成**")
                         donut = alt.Chart(count_frame).mark_arc(innerRadius=65, outerRadius=110).encode(
                             theta=alt.Theta("DEVICE_COUNT:Q"),
                             color=alt.Color("PREDICTION_GROUP:N", title="予測", scale=alt.Scale(range=[TEAL, DEEP_BLUE])),
                             tooltip=[alt.Tooltip("PREDICTION_GROUP:N", title="予測"), alt.Tooltip("DEVICE_COUNT:Q", title="端末数", format=",.0f")],
-                        ).properties(height=350, title="予測ラベルの構成")
+                        ).properties(height=350)
                         st.altair_chart(styled(donut), use_container_width=True)
 
                 histogram = predictions.dropna(subset=["PROBABILITY_BIN"]).groupby("PROBABILITY_BIN")["DEVICE_COUNT"].sum().reindex(range(10), fill_value=0).reset_index()
                 histogram["BIN_LABEL"] = histogram["PROBABILITY_BIN"].map(lambda bucket: f"{bucket / 10:.1f}–{(bucket + 1) / 10:.1f}")
                 with right:
                     with st.container(border=True):
+                        st.markdown("**予測確率の分布**")
                         hist_chart = alt.Chart(histogram).mark_bar(color=SNOWFLAKE_BLUE, cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
                             x=alt.X("BIN_LABEL:N", title="F1在籍確率", sort=list(histogram["BIN_LABEL"])),
                             y=alt.Y("DEVICE_COUNT:Q", title="端末数"),
                             tooltip=[alt.Tooltip("BIN_LABEL:N", title="確率帯"), alt.Tooltip("DEVICE_COUNT:Q", title="端末数", format=",.0f")],
-                        ).properties(height=350, title="予測確率の分布")
+                        ).properties(height=350)
                         st.altair_chart(styled(hist_chart), use_container_width=True)
 
                 st.markdown(
@@ -350,12 +356,13 @@ try:
                 p2.metric("ピーク局", top_peak["NETWORK_ID"])
                 p3.metric("ピーク時刻", pd.Timestamp(top_peak["MINUTE_AT"]).strftime("%H:%M"))
                 with st.container(border=True):
+                    st.markdown(f"**{minute_date:%Y/%m/%d} の毎分視聴パルス**")
                     lines = alt.Chart(minute_data).mark_line(strokeWidth=1.8).encode(
                         x=alt.X("MINUTE_AT:T", title="時刻", axis=alt.Axis(format="%H:%M")),
                         y=alt.Y("VIEWING_DEVICES:Q", title="分内視聴端末数", scale=alt.Scale(zero=False)),
                         color=alt.Color("NETWORK_ID:N", title="局", scale=alt.Scale(range=NETWORK_COLORS)),
                         tooltip=[alt.Tooltip("MINUTE_AT:T", title="時刻", format="%H:%M"), alt.Tooltip("NETWORK_ID:N", title="局"), alt.Tooltip("VIEWING_DEVICES:Q", title="台数", format=",.0f")],
-                    ).properties(height=430, title=f"{minute_date:%Y/%m/%d} の毎分視聴パルス")
+                    ).properties(height=430)
                     st.altair_chart(styled(lines), use_container_width=True)
                 with st.container(border=True):
                     st.markdown("**局別ピーク**")
