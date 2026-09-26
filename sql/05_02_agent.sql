@@ -28,7 +28,7 @@ GRANT USAGE ON AGENT BCAST_PLATFORM_HANDSON.MART.VIEWING_AGENT
 /*
 CREATE AGENT BCAST_PLATFORM_HANDSON.MART.VIEWING_AGENT
   COMMENT = '地上波5局の合成視聴データを、日付・放送局・ジャンル別に集計する日本語の分析エージェントです。リーチ、総視聴時間、総視聴回数を扱います。'
-  PROFILE = '{"display_name":"5局共通の視聴データ分析"}'
+  PROFILE = '{"display_name":"VIEWING_AGENT"}'
   FROM SPECIFICATION
 $$
 models:

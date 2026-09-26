@@ -65,7 +65,7 @@ Semantic Viewは、切り口と指標の計算ルールを定義します。元�
 |---|---|---|
 | **AI & ML → Agents → Create agent** | 作成ロールを`BCAST_PLATFORM_ENGINEER_ROLE`にする | 教材用ロールが選択される |
 | 作成画面 | Database=`BCAST_PLATFORM_HANDSON`、Schema=`MART`、Agent object name=`VIEWING_AGENT`を入力 | 作成先が`BCAST_PLATFORM_HANDSON.MART`になる |
-| 作成画面 | Display name=`5局共通の視聴データ分析`を入力して作成 | `VIEWING_AGENT`の編集画面が開く |
+| 作成画面 | Display name=`VIEWING_AGENT`を入力して作成 | `VIEWING_AGENT`の編集画面が開く |
 
 同名Agentがある場合は上書きせず講師へ確認します。
 
@@ -73,7 +73,7 @@ Semantic Viewは、切り口と指標の計算ルールを定義します。元�
 
 | どこ | 操作 | 成功 |
 |---|---|---|
-| 一般 → 表示名 | [agent_texts.md](agent_texts.md)の表示名を入力 | `5局共通の視聴データ分析`と表示される |
+| 一般 → 表示名 | [agent_texts.md](agent_texts.md)の表示名を入力 | `VIEWING_AGENT`と表示される |
 | 一般 → 説明 | 同ファイルの説明を貼り付け | 教材の対象と3指標が入力される |
 | 一般 → 質問の例 | **質問を追加**を3回押し、質問例を1件ずつ入力 | 3件の質問が表示される |
 
@@ -141,7 +141,7 @@ F1は20歳から34歳の女性です。ただしこのAgentは予測テーブル
 
 | どこ | 操作 | 成功 |
 |---|---|---|
-| CoWorkまたは[ai.snowflake.com](https://ai.snowflake.com/) | 共有先利用者で「5局共通の視聴データ分析」を選ぶ | Agentが表示される |
+| CoWorkまたは[ai.snowflake.com](https://ai.snowflake.com/) | 共有先利用者で`VIEWING_AGENT`を選ぶ | Agentが表示される |
 | 同画面 | 全体3指標の質問を送る | Previewと同じ条件・指標の回答になる |
 | 共有先の設定 | 既定ロール、既定WH、Analyst用WHを再確認 | 権限エラーなくツールが実行される |
 
