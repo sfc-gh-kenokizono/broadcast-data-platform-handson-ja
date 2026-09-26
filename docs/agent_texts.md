@@ -76,21 +76,20 @@ F1（20〜34歳の女性）の在籍確率・在籍予測・実際のF1視聴者
 ### 構造化データのクエリ
 
 1. **セマンティックビューを追加**を押します。
-2. 次の値を入力して追加します。
+2. Databaseで `BCAST_PLATFORM_HANDSON`、Schemaで `MART` を選びます。
+3. 一覧から `SV_VIEWING` を選びます。
+4. Warehouseに `BCAST_PLATFORM_COMMON_WH`、Query timeout (seconds)に `120` を設定します。
+5. **追加**を押します。
 
 | 画面項目 | 入力 |
 |---|---|
-| 名前 | `SV_VIEWING` |
-| Semantic view | `BCAST_PLATFORM_HANDSON.MART.SV_VIEWING` |
+| Database | `BCAST_PLATFORM_HANDSON` |
+| Schema | `MART` |
+| Semantic view | `SV_VIEWING` |
 | Warehouse | `BCAST_PLATFORM_COMMON_WH` |
 | Query timeout (seconds) | `120` |
-| 説明 | 下の文章を貼り付け |
 
-```text
-5局の合成視聴実績を集計します。リーチは DEVICE_ID の重複を除いた端末数、総視聴時間は VIEW_MINUTES の合計（分）、総視聴回数は SESSION_COUNT の合計です。切り口は視聴日・放送局・ジャンルです。データ期間は2026-05-01から2026-07-31です。予測値・正解ラベル・番組説明・分別曲線は扱いません。
-```
-
-追加後、構造化データのクエリに `SV_VIEWING` が1件だけ表示されることを確認します。
+ツール名は選択したSemantic Viewの名前から自動的に `SV_VIEWING` になります。別のツール名や説明文は入力しません。追加後、構造化データのクエリに `SV_VIEWING` が1件だけ表示されることを確認します。
 
 ### そのほかのツール
 

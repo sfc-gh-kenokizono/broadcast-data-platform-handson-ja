@@ -91,12 +91,13 @@ Semantic Viewは、切り口と指標の計算ルールを定義します。元�
 | どこ | 操作 | 成功 |
 |---|---|---|
 | ツール → 構造化データのクエリ | **セマンティックビューを追加**を押す | 追加画面が開く |
-| 追加画面 | [agent_texts.md](agent_texts.md)の名前、Semantic view、Warehouse、Query timeout、説明を入力 | `SV_VIEWING`が追加される |
+| 追加画面 | Database=`BCAST_PLATFORM_HANDSON`、Schema=`MART`を選び、Semantic view=`SV_VIEWING`を選択 | 対象Semantic Viewが選択される |
+| 追加画面 | Warehouse=`BCAST_PLATFORM_COMMON_WH`、Query timeout=`120`を設定して**追加**を押す | `SV_VIEWING`が構造化データのクエリに表示される |
 | ツール | ウェブ検索、分析検索、コード実行をオフにする | 3つともオフである |
 | ツール | 検索サービス、カスタムツールを追加しない | `SV_VIEWING`以外のデータツールがない |
 | スキル／MCP | 何も追加しない | 一覧が空である |
 
-コード実行ツールが既定でオンの場合もオフにします。`ML.PREDICTIONS`、Cortex Search、カスタムツール、スキル、MCPは接続しません。120秒はSemantic Viewから生成された1つのSQLの待ち時間で、Agent全体の時間制限ではありません。
+ツール名はSemantic View名から自動的に`SV_VIEWING`になります。別名やツール説明は入力しません。コード実行ツールが既定でオンの場合もオフにします。`ML.PREDICTIONS`、Cortex Search、カスタムツール、スキル、MCPは接続しません。120秒はSemantic Viewから生成された1つのSQLの待ち時間で、Agent全体の時間制限ではありません。
 
 ### 3-5. 保存・公開・Preview
 
