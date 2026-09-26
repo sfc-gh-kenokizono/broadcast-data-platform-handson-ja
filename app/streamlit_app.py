@@ -164,7 +164,7 @@ try:
         section_header(
             "EXECUTIVE OVERVIEW",
             "視聴ポートフォリオの全体像",
-            "5局重複除外リーチは、選択した局のどれかを1回以上見たテレビ端末を、局をまたいで重複除外した台数です。",
+            "重複除外リーチは、選択した局のどれかを1回以上見たテレビ端末を、局をまたいで重複除外した台数です。",
         )
         summary = load_aggregate("summary", date_from, date_to, selected_networks).iloc[0]
         period_days = (date_to - date_from).days + 1
@@ -185,9 +185,9 @@ try:
             k4.metric("1台あたり視聴", f"{avg_minutes:,.1f}分", metric_delta(avg_minutes, previous_avg))
 
             st.markdown(
-                '<div class="insight"><b>5局重複除外リーチとは</b><br>'
+                '<div class="insight"><b>重複除外リーチとは</b><br>'
                 '例: 同じテレビ端末がNW01とNW02を見た場合、各局のリーチではそれぞれ1台なので単純合計は2台です。'
-                '5局重複除外リーチでは端末IDで名寄せして1台と数えます。人・世帯・視聴率ではなく、教材上のテレビ端末数です。</div>',
+                '重複除外リーチでは端末IDで名寄せして1台と数えます。人・世帯・視聴率ではなく、教材上のテレビ端末数です。</div>',
                 unsafe_allow_html=True,
             )
             daily = load_aggregate("daily", date_from, date_to, selected_networks)
@@ -207,7 +207,7 @@ try:
                         color=alt.Color("SERIES:N", title=None, scale=alt.Scale(range=[SNOWFLAKE_BLUE, NAVY])),
                         strokeDash=alt.StrokeDash("SERIES:N", title=None),
                         tooltip=[alt.Tooltip("VIEW_DATE:T", title="日付"), alt.Tooltip("SERIES:N", title="系列"), alt.Tooltip("VALUE:Q", title="台数", format=",.0f")],
-                    ).properties(height=320, title="5局重複除外リーチの推移")
+                    ).properties(height=320, title="重複除外リーチの推移")
                     st.altair_chart(styled(chart), use_container_width=True)
             with right:
                 with st.container(border=True):
