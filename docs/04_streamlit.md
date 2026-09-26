@@ -103,7 +103,7 @@ Snowsightの **Projects → Streamlit → + Streamlit App** を開き、**Run on
 2. 0・1の合計が、同じ条件の実績リーチと一致することを確認します。
 3. 予測欠損や不正値があれば、条件を変えて隠さず第3章の保存・照合を確認します。
 
-参照する `ML.PREDICTIONS` は `DEVICE_ID`、`PROB_F1`、`PREDICTED_HAS_F1`、`MODEL_NAME`、`MODEL_VERSION`、`PREDICTED_AT`、`PREDICTION_THRESHOLD`、`DATASET_VERSION` の8列です。モデルは `TV_F1_PRESENCE_MODEL`、初回版は `V1` です。再登録した場合は、第3章で選んだ未使用の `V2` などが保存されます。XGBoostモデルの判定境界は0.50です。日時はUTCの `TIMESTAMP_NTZ` で、1回の公開スナップショットは全20,000台が同じ `PREDICTED_AT` を持ちます。データ版は `F1_SIGNAL_V2` です。
+参照する `ML.PREDICTIONS` は `DEVICE_ID`、`PROB_F1`、`PREDICTED_HAS_F1`、`MODEL_NAME`、`MODEL_VERSION`、`PREDICTED_AT`、`PREDICTION_THRESHOLD`、`DATASET_VERSION` の8列です。モデルは `TV_F1_PRESENCE_MODEL`、モデル版は `V1` です。再実行時も既存版を置き換えて同じ `V1` を使います。XGBoostモデルの判定境界は0.50です。日時はUTCの `TIMESTAMP_NTZ` で、1回の公開スナップショットは全20,000台が同じ `PREDICTED_AT` を持ちます。データ版は `F1_SIGNAL_V2` です。
 
 ヒストグラムは0.1刻みで、最後の区間だけ1.0を含みます。グラフと表は選択期間・局に視聴実績がある端末だけが対象です。同じ端末は重複を除いてから予測へ結び付けます。期間や局の変更は表示対象の変更で、再学習ではありません。
 
