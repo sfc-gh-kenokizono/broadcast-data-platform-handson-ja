@@ -166,7 +166,11 @@ st.markdown(
 
 try:
     if view == "経営サマリー":
-        section_header("EXECUTIVE OVERVIEW", "視聴ポートフォリオの全体像", "局を横断して端末の重複を除いた数字です。局別リーチの単純合計ではありません。")
+        section_header(
+            "EXECUTIVE OVERVIEW",
+            "視聴ポートフォリオの全体像",
+            "5局重複除外リーチは、選択した局のどれかを1回以上見たテレビ端末を、局をまたいで重複除外した台数です。",
+        )
         summary = load_aggregate("summary", date_from, date_to, selected_networks).iloc[0]
         period_days = (date_to - date_from).days + 1
         previous_to = date_from - timedelta(days=1)
@@ -180,14 +184,15 @@ try:
             avg_minutes = summary["TOTAL_MINUTES"] / summary["DISTINCT_REACH"]
             previous_avg = previous["TOTAL_MINUTES"] / previous["DISTINCT_REACH"] if previous is not None and previous["DISTINCT_REACH"] else None
             k1, k2, k3, k4 = st.columns(4)
-            k1.metric("横断リーチ", f"{int(summary['DISTINCT_REACH']):,}台", metric_delta(summary["DISTINCT_REACH"], previous["DISTINCT_REACH"] if previous is not None else None))
+            k1.metric("5局重複除外リーチ", f"{int(summary['DISTINCT_REACH']):,}台", metric_delta(summary["DISTINCT_REACH"], previous["DISTINCT_REACH"] if previous is not None else None))
             k2.metric("総視聴時間", to_hours(summary["TOTAL_MINUTES"]), metric_delta(summary["TOTAL_MINUTES"], previous["TOTAL_MINUTES"] if previous is not None else None))
             k3.metric("視聴区間", f"{int(summary['TOTAL_SESSIONS']):,}回", metric_delta(summary["TOTAL_SESSIONS"], previous["TOTAL_SESSIONS"] if previous is not None else None))
             k4.metric("1台あたり視聴", f"{avg_minutes:,.1f}分", metric_delta(avg_minutes, previous_avg))
 
             st.markdown(
-                '<div class="insight"><b>Snowflakeで統合する価値</b><br>'
-                '同じ端末が複数局を見ても、共通マート上の端末IDで1台として数えます。保存層と計算を分離したまま、局横断の指標を同じ定義で再利用できます。</div>',
+                '<div class="insight"><b>5局重複除外リーチとは</b><br>'
+                '例: 同じテレビ端末がNW01とNW02を見た場合、各局のリーチではそれぞれ1台なので単純合計は2台です。'
+                '5局重複除外リーチでは端末IDで名寄せして1台と数えます。人・世帯・視聴率ではなく、教材上のテレビ端末数です。</div>',
                 unsafe_allow_html=True,
             )
             daily = load_aggregate("daily", date_from, date_to, selected_networks)
@@ -207,7 +212,7 @@ try:
                         color=alt.Color("SERIES:N", title=None, scale=alt.Scale(range=[SNOWFLAKE_BLUE, NAVY])),
                         strokeDash=alt.StrokeDash("SERIES:N", title=None),
                         tooltip=[alt.Tooltip("VIEW_DATE:T", title="日付"), alt.Tooltip("SERIES:N", title="系列"), alt.Tooltip("VALUE:Q", title="台数", format=",.0f")],
-                    ).properties(height=320, title="横断リーチの推移")
+                    ).properties(height=320, title="5局重複除外リーチの推移")
                     st.altair_chart(styled(chart), use_container_width=True)
             with right:
                 with st.container(border=True):
