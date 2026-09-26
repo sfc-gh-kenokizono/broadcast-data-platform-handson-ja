@@ -77,7 +77,7 @@
 | Semantic View | 指標と分析の切り口を定義するもの |
 | Agent / CoWork | 分析ツールを使う質問役 / Agentへ日本語で質問する画面 |
 
-本編は第1〜5章です。StreamlitはWHで動かす推奨手順を使います。[基本SQL・Cortex Search・定期実行の考え方](supplemental/README.md)は任意です。App Runtimeは講師デモのみで、現在の配布資材には含みません。DCR、外部モデルファイルの持ち込み、高度な自動再学習は対象外です。
+本編は第1〜5章です。StreamlitはWHで動かす推奨手順を使います。[基本SQL・Cortex Search・定期実行の考え方](supplemental/README.md)は任意です。App Runtimeはトライアルアカウントでは利用できないため、[有償アカウント向けの任意講師デモ](docs/06_app_runtime.md)として配布します。DCR、外部モデルファイルの持ち込み、高度な自動再学習は対象外です。
 
 ## フォルダ
 
@@ -89,6 +89,7 @@
 | `dbt/` | 整形・集計のSQLとデータテスト |
 | `notebooks/` | 学習から予測保存までのNotebook |
 | `app/` | Streamlit用ファイル |
+| `app-runtime/` | Next.js製の任意講師デモ（分析ダッシュボード + Agent） |
 | `supplemental/` | 任意の追加教材 |
 
 ## 終了するとき
