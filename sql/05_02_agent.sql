@@ -3,13 +3,13 @@
 -- GUI が主経路です。docs/05_agent.md と docs/agent_texts.md を先に開いてください。
 -- 実行方法: 全選択で実行しないでください。以下は対象教材環境で参加者が選択実行する手順です。
 -- 完了の目安: SHOW/DESCRIBEで対象Agentと設定を確認でき、GRANTが成功すること。
--- 続けてGUIで保存・公開を確認し、Playground/CoWorkの回答を05_01_semantic.sqlの同条件の結果と比較します。
+-- 続けてGUIで保存・公開を確認し、Preview/CoWorkの回答を05_01_semantic.sqlの同条件の結果と比較します。
 USE ROLE BCAST_PLATFORM_ENGINEER_ROLE;
 USE WAREHOUSE BCAST_PLATFORM_COMMON_WH;
 
 -- 1. 先にGUIでMART.VIEWING_AGENTを作成・設定・保存します。未作成なら以下の確認SQLへ進まず、ここで停止します。
 -- ツールはSV_VIEWING（Cortex Analyst）の1つだけ。質問をこの定義に沿う集計SQLへ変換し、実績の数値を取得します。
--- Autoはモデルの自動選択、COMMON_WHは集計SQLの計算資源、Query timeout 120秒はそのSQLの待ち時間上限です。
+-- GUIではClaude Opus 5を選択します。COMMON_WHは集計SQLの計算資源、Query timeout 120秒はそのSQLの待ち時間上限です。
 -- 2. 保存後、SHOWでVIEWING_AGENTがあること、DESCRIBEで参照先と設定を確認します。これだけでは回答の正しさは未確認です。
 SHOW AGENTS IN SCHEMA BCAST_PLATFORM_HANDSON.MART;
 DESCRIBE AGENT BCAST_PLATFORM_HANDSON.MART.VIEWING_AGENT;
@@ -32,17 +32,17 @@ CREATE AGENT BCAST_PLATFORM_HANDSON.MART.VIEWING_AGENT
   FROM SPECIFICATION
 $$
 models:
-  orchestration: auto
+  orchestration: claude-opus-5
 instructions:
   orchestration: |
-    視聴実績の数値・比較・推移は必ず SV_VIEWING を使って取得してください。
+    視聴実績の数値・比較・推移は、構造化データのクエリに追加した BCAST_PLATFORM_HANDSON.MART.SV_VIEWING を必ず使って取得してください。
     対象は BCAST_PLATFORM_HANDSON.COMMON.VIEWING_DAILY に基づく実績だけです。
     リーチは対象範囲全体で DEVICE_ID の重複を除いて計算し、日別・局別・ジャンル別のリーチを足さないでください。
     総視聴時間は VIEW_MINUTES の合計、総視聴回数は SESSION_COUNT の合計です。行数を視聴回数にしないでください。
     視聴区間全体を開始日と開始時のジャンルに計上しています。番組ごとの正確な視聴時間とは説明しないでください。
     期間が省略されたら2026-05-01から2026-07-31、局が省略されたら全5局を対象にして、その範囲を明示してください。指定された期間・局を勝手に置き換えないでください。
     ジャンルは NEWS（ニュース）、DRAMA（ドラマ）、VARIETY（バラエティ）、ANIME（アニメ）、SPORTS（スポーツ）、MUSIC（音楽）、MOVIE（映画）、INFO（情報）の8種類だけで、それ以外は不正値です。局は NW01からNW05です。
-    F1（20〜34歳の女性）の在籍確率・在籍予測・実際のF1視聴者数・モデル評価・性年代・番組内容の検索・広告接触・分別曲線はこのツールの対象外です。F1在籍は世帯にF1がいることを意味し、20〜34歳の女性の単身世帯も含みます。実績から推測せず、対象外と説明してください。
+    F1（20〜34歳の女性）の在籍確率・在籍予測・実際のF1視聴者数・モデル評価・性年代・番組内容の検索・広告接触・分別曲線は対象外です。実績から推測せず、対象外と説明してください。
     ツールが失敗した場合は数値を生成せず、失敗を伝えてください。
   response: |
     日本語で簡潔に答え、数値には対象期間・放送局・ジャンル条件と単位を添えてください。
