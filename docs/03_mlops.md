@@ -169,7 +169,7 @@ Model Registryでは、モデル本体、版、評価指標、Pythonとライブ
 モデル登録完了: TV_F1_PRESENCE_MODEL （選択した未使用版）
 ```
 
-続けて、予測に使う `predict_proba` と、判断理由を返す `explain` が表示されます。
+続けて、判定を返す `predict`、確率を返す `predict_proba`、判断理由を返す `explain` が表示されます。
 
 ### コードセル8: 登録モデルの判断理由をSnowflakeで説明する
 
